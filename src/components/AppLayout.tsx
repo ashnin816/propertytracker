@@ -41,7 +41,7 @@ import TeamPanel from "./TeamPanel";
 import RenameModal from "./RenameModal";
 import BulkUnitsModal from "./BulkUnitsModal";
 
-type View = "home" | "space" | "units" | "unit" | "item";
+type View = "home" | "space" | "units" | "unit" | "item" | "team";
 
 interface AppLayoutProps {
   mirrorOrgId?: string;
@@ -916,8 +916,24 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
           </div>
         )}
 
-        {/* Team section */}
-        <TeamPanel spaces={spaces} />
+        {/* Team nav item — admin only */}
+        {(authUser?.role === "org_admin" || authUser?.role === "super_admin") && (
+          <div className="px-2 border-t border-gray-200/60 dark:border-gray-800 flex-shrink-0 pt-2">
+            <button onClick={() => { setView("team"); setSelectedSpaceId(null); setSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left no-min-size cursor-pointer ${
+                view === "team" ? "bg-blue-600 text-white shadow-md" : "hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                view === "team" ? "bg-white/20" : "bg-gray-100 dark:bg-gray-800"
+              }`}>
+                <svg className={`w-4.5 h-4.5 ${view === "team" ? "text-white" : "text-gray-500 dark:text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                </svg>
+              </div>
+              <span className={`text-sm font-medium ${view === "team" ? "text-white" : "dark:text-gray-200"}`}>Team</span>
+            </button>
+          </div>
+        )}
 
         {/* Bottom actions */}
         <div className="p-3 border-t border-gray-200/60 dark:border-gray-800 flex-shrink-0 space-y-2">
@@ -967,6 +983,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
             {/* Context title */}
             <div className="min-w-0">
               {view === "home" && <h1 className="text-base font-semibold dark:text-white">Dashboard</h1>}
+              {view === "team" && <h1 className="text-base font-semibold dark:text-white">Team Management</h1>}
               {(view === "space" || view === "units") && selectedSpace && spaceIcon && (
                 <div className="flex items-center gap-2.5">
                   <span className="text-xl flex-shrink-0">{spaceIcon.emoji}</span>
@@ -1180,6 +1197,9 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
               )}
             </div>
           )}
+
+          {/* TEAM VIEW */}
+          {view === "team" && <TeamPanel spaces={spaces} />}
 
           {/* SPACE VIEW */}
           {view === "space" && selectedSpace && spaceColors && spaceIcon && (

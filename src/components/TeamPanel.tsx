@@ -21,10 +21,17 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  org_admin: "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400",
-  manager: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
-  technician: "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+  org_admin: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+  manager: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  technician: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   tenant: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
+};
+
+const ROLE_DESCRIPTIONS: Record<string, string> = {
+  org_admin: "Full access to all properties and team management",
+  manager: "Manage properties, units, and documents",
+  technician: "View properties and upload documents",
+  tenant: "View assigned unit only",
 };
 
 const AVATAR_COLORS = ["bg-blue-500", "bg-emerald-500", "bg-violet-500", "bg-amber-500", "bg-rose-500", "bg-cyan-500"];
@@ -38,6 +45,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<string>("all");
 
   // Add form
   const [name, setName] = useState("");
@@ -97,27 +105,119 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     return n.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
   }
 
-  if (loading) return null;
+  function formatDate(dateStr: string) {
+    return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  const filtered = filter === "all" ? members : members.filter((m) => m.role === filter);
+  const roleCounts = members.reduce((acc, m) => { acc[m.role] = (acc[m.role] || 0) + 1; return acc; }, {} as Record<string, number>);
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <>
-      {/* Sidebar team section */}
-      <div className="px-3 py-2 border-t border-gray-200/60 dark:border-gray-800 flex-shrink-0">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Team</span>
-          {(user?.role === "org_admin" || user?.role === "super_admin") && (
-            <button onClick={() => setShowAdd(true)}
-              className="text-xs text-blue-600 font-medium cursor-pointer no-min-size hover:text-blue-700">Invite</button>
-          )}
+      <div className="p-4 md:p-6 h-full overflow-y-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {members.length} member{members.length !== 1 ? "s" : ""} in your organization
+            </p>
+          </div>
+          <button onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all font-medium text-sm shadow-lg shadow-blue-500/20 cursor-pointer no-min-size">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Member
+          </button>
         </div>
-        <div className="flex items-center gap-1 flex-wrap">
-          {members.map((m, i) => (
-            <div key={m.id} title={`${m.name} (${ROLE_LABELS[m.role] || m.role})`}
-              className={`w-7 h-7 rounded-full ${AVATAR_COLORS[i % AVATAR_COLORS.length]} flex items-center justify-center text-white text-[9px] font-bold no-min-size cursor-default`}>
-              {getInitials(m.name)}
-            </div>
+
+        {/* Role filter pills */}
+        <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1">
+          <button onClick={() => setFilter("all")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all no-min-size cursor-pointer whitespace-nowrap ${
+              filter === "all" ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+            }`}>
+            All ({members.length})
+          </button>
+          {Object.entries(ROLE_LABELS).map(([key, label]) => (
+            roleCounts[key] ? (
+              <button key={key} onClick={() => setFilter(key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all no-min-size cursor-pointer whitespace-nowrap ${
+                  filter === key ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                }`}>
+                {label} ({roleCounts[key]})
+              </button>
+            ) : null
           ))}
         </div>
+
+        {/* Member list */}
+        <div className="space-y-2">
+          {filtered.map((m, i) => {
+            const isCurrentUser = m.id === user?.id;
+            const colorIndex = members.indexOf(m);
+            return (
+              <div key={m.id}
+                className="flex items-center gap-4 p-4 bg-white dark:bg-[#1a2332] rounded-xl border border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-colors">
+                {/* Avatar */}
+                <div className={`w-10 h-10 rounded-full ${AVATAR_COLORS[colorIndex % AVATAR_COLORS.length]} flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
+                  {getInitials(m.name)}
+                </div>
+
+                {/* Info */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold dark:text-white truncate">{m.name}</p>
+                    {isCurrentUser && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">You</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 truncate">{m.email}</p>
+                </div>
+
+                {/* Role badge */}
+                <div className="hidden sm:block flex-shrink-0">
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${ROLE_COLORS[m.role] || "bg-gray-100 text-gray-600"}`}>
+                    {ROLE_LABELS[m.role] || m.role}
+                  </span>
+                </div>
+
+                {/* Date */}
+                <div className="hidden md:block flex-shrink-0">
+                  <p className="text-xs text-gray-400">{formatDate(m.created_at)}</p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex-shrink-0">
+                  {!isCurrentUser && m.role !== "org_admin" ? (
+                    <button onClick={() => setDeleteUser(m)}
+                      className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors no-min-size cursor-pointer">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <div className="w-8" />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {filtered.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-sm text-gray-400">No {filter !== "all" ? ROLE_LABELS[filter]?.toLowerCase() + "s" : "members"} found</p>
+          </div>
+        )}
       </div>
 
       {/* Add User Modal */}
