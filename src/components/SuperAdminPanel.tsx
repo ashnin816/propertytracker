@@ -32,6 +32,9 @@ export default function SuperAdminPanel({ onViewTenant }: SuperAdminPanelProps) 
   const [adminPassword, setAdminPassword] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [deleteOrg, setDeleteOrg] = useState<Organization | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadOrgs();
@@ -49,6 +52,21 @@ export default function SuperAdminPanel({ onViewTenant }: SuperAdminPanelProps) 
 
     setOrgs(orgsWithCounts);
     setLoading(false);
+  }
+
+  async function handleDeleteTenant() {
+    if (!deleteOrg || deleteConfirm !== deleteOrg.name) return;
+    setDeleting(true);
+    try {
+      // Delete org — cascading deletes will handle spaces, units, items, documents
+      await supabase.from("organizations").delete().eq("id", deleteOrg.id);
+      await loadOrgs();
+      setDeleteOrg(null);
+      setDeleteConfirm("");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Failed to delete");
+    }
+    setDeleting(false);
   }
 
   async function handleCreateTenant(e: React.FormEvent) {
@@ -145,15 +163,25 @@ export default function SuperAdminPanel({ onViewTenant }: SuperAdminPanelProps) 
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-gray-400">{new Date(org.created_at).toLocaleDateString()}</span>
-                  {onViewTenant && org.slug !== "admin" && (
-                    <button onClick={() => onViewTenant(org.id, org.name)}
-                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-medium cursor-pointer no-min-size">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                      View
-                    </button>
+                  {org.slug !== "admin" && (
+                    <>
+                      {onViewTenant && (
+                        <button onClick={() => onViewTenant(org.id, org.name)}
+                          className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-medium cursor-pointer no-min-size">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          View
+                        </button>
+                      )}
+                      <button onClick={() => { setDeleteOrg(org); setDeleteConfirm(""); }}
+                        className="p-2 text-gray-400 hover:text-red-500 transition-colors cursor-pointer no-min-size">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -209,6 +237,50 @@ export default function SuperAdminPanel({ onViewTenant }: SuperAdminPanelProps) 
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Delete Tenant Modal */}
+      {deleteOrg && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setDeleteOrg(null)}>
+          <div className="bg-white dark:bg-[#1a2332] rounded-2xl w-full max-w-sm animate-scale-in overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 pt-6 pb-4 text-center">
+              <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+                <svg className="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold dark:text-white mb-1">Delete {deleteOrg.name}?</h3>
+              <p className="text-sm text-gray-400">This will permanently delete the organization, all its properties, units, assets, documents, and user accounts.</p>
+
+              <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-xl">
+                <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                  {deleteOrg.member_count} member{deleteOrg.member_count !== 1 ? "s" : ""} and {deleteOrg.space_count} propert{deleteOrg.space_count !== 1 ? "ies" : "y"} will be deleted.
+                </p>
+              </div>
+
+              <div className="mt-4 text-left">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
+                  Type <span className="font-bold text-red-500">{deleteOrg.name}</span> to confirm
+                </label>
+                <input
+                  type="text" value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)}
+                  placeholder={deleteOrg.name} autoFocus
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-[#0c1222] dark:text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent no-min-size"
+                />
+              </div>
+            </div>
+
+            <div className="px-6 pb-6 flex gap-3">
+              <button onClick={() => setDeleteOrg(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#0c1222] active:scale-[0.98] transition-all font-medium text-sm no-min-size cursor-pointer">
+                Cancel
+              </button>
+              <button onClick={handleDeleteTenant} disabled={deleteConfirm !== deleteOrg.name || deleting}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium text-sm no-min-size cursor-pointer">
+                {deleting ? "Deleting..." : "Delete Permanently"}
+              </button>
+            </div>
           </div>
         </div>
       )}
