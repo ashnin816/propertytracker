@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import LoginPage from "@/components/LoginPage";
 import SuperAdminPanel from "@/components/SuperAdminPanel";
@@ -7,6 +8,7 @@ import AppLayout from "@/components/AppLayout";
 
 export default function Home() {
   const { user, loading } = useAuth();
+  const [viewingOrg, setViewingOrg] = useState<{ id: string; name: string } | null>(null);
 
   if (loading) {
     return (
@@ -23,8 +25,13 @@ export default function Home() {
     return <LoginPage />;
   }
 
+  // Super admin viewing a tenant
+  if (user.role === "super_admin" && viewingOrg) {
+    return <AppLayout mirrorOrgId={viewingOrg.id} mirrorOrgName={viewingOrg.name} onExitMirror={() => setViewingOrg(null)} />;
+  }
+
   if (user.role === "super_admin") {
-    return <SuperAdminPanel />;
+    return <SuperAdminPanel onViewTenant={(id, name) => setViewingOrg({ id, name })} />;
   }
 
   return <AppLayout />;

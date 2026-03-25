@@ -26,8 +26,10 @@ function toDocument(row: Record<string, unknown>): Document {
 }
 
 // --- Spaces ---
-export async function getAllSpaces(): Promise<Space[]> {
-  const { data } = await supabase.from("spaces").select("*").order("created_at", { ascending: false });
+export async function getAllSpaces(orgId?: string): Promise<Space[]> {
+  let query = supabase.from("spaces").select("*").order("created_at", { ascending: false });
+  if (orgId) query = query.eq("org_id", orgId);
+  const { data } = await query;
   return (data || []).map(toSpace);
 }
 

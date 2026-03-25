@@ -44,7 +44,13 @@ import BulkUnitsModal from "./BulkUnitsModal";
 
 type View = "home" | "space" | "units" | "unit" | "item";
 
-export default function AppLayout() {
+interface AppLayoutProps {
+  mirrorOrgId?: string;
+  mirrorOrgName?: string;
+  onExitMirror?: () => void;
+}
+
+export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: AppLayoutProps = {}) {
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
@@ -192,7 +198,7 @@ export default function AppLayout() {
   }, [view, spaces]);
 
   useEffect(() => {
-    getAllSpaces().then(setSpaces);
+    getAllSpaces(mirrorOrgId).then(setSpaces);
     loadDemoTeam();
     setTeamMembers(getAllMembers());
     setTimeout(() => setInitialLoad(false), 300);
@@ -244,7 +250,7 @@ export default function AppLayout() {
   }, [contextDeleteItemId]);
 
   async function refreshSpaces() {
-    const s = await getAllSpaces();
+    const s = await getAllSpaces(mirrorOrgId);
     setSpaces(s);
   }
 
@@ -792,6 +798,20 @@ export default function AppLayout() {
 
       {/* Sidebar */}
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-white dark:bg-[#111827] border-r border-gray-200/60 dark:border-gray-800 flex flex-col transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        {/* Mirror banner */}
+        {mirrorOrgId && onExitMirror && (
+          <div className="bg-amber-500 px-4 py-2 flex items-center justify-between flex-shrink-0">
+            <div>
+              <p className="text-[10px] font-semibold text-amber-900 uppercase tracking-wider">Viewing as</p>
+              <p className="text-sm font-bold text-white">{mirrorOrgName}</p>
+            </div>
+            <button onClick={onExitMirror}
+              className="text-xs font-medium text-amber-900 bg-white/30 hover:bg-white/50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer no-min-size">
+              Exit
+            </button>
+          </div>
+        )}
+
         {/* Sidebar header */}
         <div className="h-14 px-4 flex items-center justify-between border-b border-gray-200/60 dark:border-gray-800 flex-shrink-0">
           <div className="flex items-center gap-2">
