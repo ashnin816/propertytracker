@@ -1,5 +1,10 @@
 import { supabase } from "./supabase";
 
+export interface UserAssignment {
+  spaceId: string;
+  unitId: string | null;
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -9,6 +14,7 @@ export interface UserProfile {
   orgName?: string;
   avatarUrl?: string;
   status: "active" | "inactive";
+  assignments?: UserAssignment[];
 }
 
 export async function signIn(email: string, password: string) {
@@ -69,15 +75,29 @@ export async function getProfile(): Promise<UserProfile | null> {
       orgName = org?.name;
     }
 
+    // Fetch assignments for non-admin roles
+    let assignments: UserAssignment[] | undefined;
+    const role = profile.role as UserProfile["role"];
+    if (role !== "org_admin" && role !== "super_admin") {
+      const { data: assignData } = await supabase.from("user_assignments")
+        .select("space_id, unit_id")
+        .eq("user_id", user.id);
+      assignments = (assignData || []).map((a: Record<string, unknown>) => ({
+        spaceId: a.space_id as string,
+        unitId: a.unit_id as string | null,
+      }));
+    }
+
     return {
       id: profile.id,
       email: profile.email,
       name: profile.name,
-      role: profile.role as UserProfile["role"],
+      role,
       orgId: profile.org_id,
       orgName,
       avatarUrl: profile.avatar_url,
       status: profile.status || "active",
+      assignments,
     };
   } catch (err) {
     console.error("getProfile error:", err);

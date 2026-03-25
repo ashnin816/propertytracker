@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { Space, Unit, Item, Document } from "./types";
+import { UserAssignment } from "./auth";
 
 // Helper to convert Supabase snake_case to our camelCase
 function toSpace(row: Record<string, unknown>): Space {
@@ -26,9 +27,14 @@ function toDocument(row: Record<string, unknown>): Document {
 }
 
 // --- Spaces ---
-export async function getAllSpaces(orgId?: string): Promise<Space[]> {
+export async function getAllSpaces(orgId?: string, assignments?: UserAssignment[]): Promise<Space[]> {
   let query = supabase.from("spaces").select("*").order("created_at", { ascending: false });
   if (orgId) query = query.eq("org_id", orgId);
+  if (assignments !== undefined) {
+    if (assignments.length === 0) return [];
+    const spaceIds = [...new Set(assignments.map((a) => a.spaceId))];
+    query = query.in("id", spaceIds);
+  }
   const { data } = await query;
   return (data || []).map(toSpace);
 }
@@ -59,8 +65,17 @@ export async function deleteSpace(id: string) {
 }
 
 // --- Units ---
-export async function getUnitsForSpace(spaceId: string): Promise<Unit[]> {
-  const { data } = await supabase.from("units").select("*").eq("space_id", spaceId).order("name");
+export async function getUnitsForSpace(spaceId: string, assignments?: UserAssignment[]): Promise<Unit[]> {
+  let query = supabase.from("units").select("*").eq("space_id", spaceId).order("name");
+  // For users with unit-level assignments, filter to only their assigned units
+  if (assignments !== undefined) {
+    const unitIds = assignments.filter((a) => a.spaceId === spaceId && a.unitId).map((a) => a.unitId!);
+    if (unitIds.length > 0) {
+      query = query.in("id", unitIds);
+    }
+    // If no unit-level assignments for this space, they have property-level access → see all units
+  }
+  const { data } = await query;
   return (data || []).map(toUnit);
 }
 

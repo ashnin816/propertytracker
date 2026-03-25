@@ -57,6 +57,12 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
   // Status toggle
   const [togglingStatus, setTogglingStatus] = useState<string | null>(null);
 
+  // Assignments
+  const [expandedMember, setExpandedMember] = useState<string | null>(null);
+  const [memberAssignments, setMemberAssignments] = useState<Record<string, boolean>>({});
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [savingAssignment, setSavingAssignment] = useState<string | null>(null);
+
   useEffect(() => {
     if (user?.orgId) loadMembers();
   }, [user?.orgId]);
@@ -109,6 +115,42 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     await loadMembers();
     setDeleteUser(null);
     setDeleting(false);
+  }
+
+  async function handleExpandMember(memberId: string) {
+    if (expandedMember === memberId) {
+      setExpandedMember(null);
+      return;
+    }
+    setExpandedMember(memberId);
+    setLoadingAssignments(true);
+    const res = await fetch("/api/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "get_assignments", userId: memberId }),
+    });
+    const data = await res.json();
+    const map: Record<string, boolean> = {};
+    if (Array.isArray(data)) {
+      for (const a of data) map[a.space_id] = true;
+    }
+    setMemberAssignments(map);
+    setLoadingAssignments(false);
+  }
+
+  async function handleToggleAssignment(memberId: string, spaceId: string, assigned: boolean) {
+    setSavingAssignment(spaceId);
+    await fetch("/api/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: assigned ? "unassign" : "assign",
+        userId: memberId,
+        spaceId,
+      }),
+    });
+    setMemberAssignments((prev) => ({ ...prev, [spaceId]: !assigned }));
+    setSavingAssignment(null);
   }
 
   function getInitials(n: string) {
@@ -201,82 +243,133 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
             const isInactive = m.status === "inactive";
             const colorIndex = members.indexOf(m);
             const canManage = !isCurrentUser && m.role !== "org_admin";
+            const isExpanded = expandedMember === m.id;
+            const canAssign = canManage && m.role !== "org_admin";
             return (
-              <div key={m.id}
-                className={`flex items-center gap-4 p-4 bg-white dark:bg-[#1a2332] rounded-xl border border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-colors ${
-                  isInactive ? "opacity-50" : ""
-                }`}>
-                {/* Avatar */}
-                <div className={`w-10 h-10 rounded-full ${isInactive ? "bg-gray-400" : AVATAR_COLORS[colorIndex % AVATAR_COLORS.length]} flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
-                  {getInitials(m.name)}
-                </div>
+              <div key={m.id} className={`bg-white dark:bg-[#1a2332] rounded-xl border transition-colors ${
+                isExpanded ? "border-blue-300 dark:border-blue-700" : "border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700"
+              } ${isInactive ? "opacity-50" : ""}`}>
+                <div className={`flex items-center gap-4 p-4 ${canAssign ? "cursor-pointer" : ""}`}
+                  onClick={() => canAssign && handleExpandMember(m.id)}>
+                  {/* Avatar */}
+                  <div className={`w-10 h-10 rounded-full ${isInactive ? "bg-gray-400" : AVATAR_COLORS[colorIndex % AVATAR_COLORS.length]} flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
+                    {getInitials(m.name)}
+                  </div>
 
-                {/* Info */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold dark:text-white truncate">{m.name}</p>
-                    {isCurrentUser && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">You</span>
+                  {/* Info */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold dark:text-white truncate">{m.name}</p>
+                      {isCurrentUser && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">You</span>
+                      )}
+                      {isInactive && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-medium flex-shrink-0">Inactive</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400 truncate">{m.email}</p>
+                  </div>
+
+                  {/* Role badge */}
+                  <div className="hidden sm:block flex-shrink-0">
+                    <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${ROLE_COLORS[m.role] || "bg-gray-100 text-gray-600"}`}>
+                      {ROLE_LABELS[m.role] || m.role}
+                    </span>
+                  </div>
+
+                  {/* Date */}
+                  <div className="hidden md:block flex-shrink-0">
+                    <p className="text-xs text-gray-400">{formatDate(m.created_at)}</p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    {canManage && (
+                      <>
+                        <button
+                          onClick={() => handleToggleStatus(m)}
+                          disabled={togglingStatus === m.id}
+                          title={isInactive ? "Reactivate user" : "Deactivate user"}
+                          className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                            isInactive
+                              ? "text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                              : "text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                          } ${togglingStatus === m.id ? "opacity-50" : ""}`}>
+                          {isInactive ? (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          )}
+                        </button>
+                        <button onClick={() => setDeleteUser(m)}
+                          title="Permanently delete"
+                          className="p-2 rounded-lg text-gray-300 dark:text-gray-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </>
                     )}
-                    {isInactive && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-medium flex-shrink-0">Inactive</span>
+                    {!canManage && <div className="w-16" />}
+                    {/* Expand chevron */}
+                    {canAssign && (
+                      <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 truncate">{m.email}</p>
                 </div>
 
-                {/* Role badge */}
-                <div className="hidden sm:block flex-shrink-0">
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${ROLE_COLORS[m.role] || "bg-gray-100 text-gray-600"}`}>
-                    {ROLE_LABELS[m.role] || m.role}
-                  </span>
-                </div>
-
-                {/* Date */}
-                <div className="hidden md:block flex-shrink-0">
-                  <p className="text-xs text-gray-400">{formatDate(m.created_at)}</p>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  {canManage && (
-                    <>
-                      {/* Deactivate / Reactivate */}
-                      <button
-                        onClick={() => handleToggleStatus(m)}
-                        disabled={togglingStatus === m.id}
-                        title={isInactive ? "Reactivate user" : "Deactivate user"}
-                        className={`p-2 rounded-lg transition-colors cursor-pointer ${
-                          isInactive
-                            ? "text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                            : "text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                        } ${togglingStatus === m.id ? "opacity-50" : ""}`}>
-                        {isInactive ? (
-                          // Play icon (reactivate)
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        ) : (
-                          // Pause icon (deactivate)
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
+                {/* Expanded: Property assignments */}
+                {isExpanded && (
+                  <div className="px-4 pb-4 pt-0 border-t border-gray-100 dark:border-gray-800">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-3 mb-2">
+                      Property Access
+                    </p>
+                    {loadingAssignments ? (
+                      <div className="flex items-center gap-2 py-2">
+                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs text-gray-400">Loading...</span>
+                      </div>
+                    ) : spaces.length === 0 ? (
+                      <p className="text-xs text-gray-400 py-2">No properties in this organization</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {spaces.map((space) => {
+                          const assigned = memberAssignments[space.id] || false;
+                          const saving = savingAssignment === space.id;
+                          return (
+                            <button key={space.id}
+                              onClick={() => handleToggleAssignment(m.id, space.id, assigned)}
+                              disabled={saving}
+                              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors cursor-pointer ${
+                                assigned ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                              } ${saving ? "opacity-50" : ""}`}>
+                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                                assigned ? "bg-blue-600 border-blue-600" : "border-gray-300 dark:border-gray-600"
+                              }`}>
+                                {assigned && (
+                                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </div>
+                              <span className="text-sm dark:text-gray-200">{space.name}</span>
+                            </button>
+                          );
+                        })}
+                        {Object.values(memberAssignments).filter(Boolean).length === 0 && (
+                          <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">No properties assigned — this user won&apos;t see any data</p>
                         )}
-                      </button>
-
-                      {/* Delete (secondary) */}
-                      <button onClick={() => setDeleteUser(m)}
-                        title="Permanently delete"
-                        className="p-2 rounded-lg text-gray-300 dark:text-gray-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </>
-                  )}
-                  {!canManage && <div className="w-16" />}
-                </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

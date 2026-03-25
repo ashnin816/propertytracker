@@ -80,32 +80,65 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PATCH — update user (status toggle, etc.)
+// PATCH — update user (status toggle, assignments)
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, status } = body;
-
-    if (!userId || !status || !["active", "inactive"].includes(status)) {
-      return NextResponse.json({ error: "userId and valid status required" }, { status: 400 });
-    }
-
     const admin = getAdminClient();
 
-    // Update profile status
-    const { error } = await admin.from("profiles").update({ status }).eq("id", userId);
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    // Action: toggle_status
+    if (body.action === "toggle_status" || body.status) {
+      const { userId, status } = body;
+      if (!userId || !status || !["active", "inactive"].includes(status)) {
+        return NextResponse.json({ error: "userId and valid status required" }, { status: 400 });
+      }
+
+      const { error } = await admin.from("profiles").update({ status }).eq("id", userId);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+      if (status === "inactive") {
+        await admin.auth.admin.updateUserById(userId, { ban_duration: "876000h" });
+      } else {
+        await admin.auth.admin.updateUserById(userId, { ban_duration: "none" });
+      }
+      return NextResponse.json({ success: true });
     }
 
-    // Ban/unban auth user to invalidate sessions
-    if (status === "inactive") {
-      await admin.auth.admin.updateUserById(userId, { ban_duration: "876000h" });
-    } else {
-      await admin.auth.admin.updateUserById(userId, { ban_duration: "none" });
+    // Action: get_assignments
+    if (body.action === "get_assignments") {
+      const { data, error } = await admin.from("user_assignments")
+        .select("id, space_id, unit_id, spaces(name, icon), units(name)")
+        .eq("user_id", body.userId);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(data);
     }
 
-    return NextResponse.json({ success: true });
+    // Action: assign
+    if (body.action === "assign") {
+      const { userId, spaceId, unitId } = body;
+      const { error } = await admin.from("user_assignments").upsert({
+        user_id: userId, space_id: spaceId, unit_id: unitId || null,
+      });
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: true });
+    }
+
+    // Action: unassign
+    if (body.action === "unassign") {
+      const { userId, spaceId, unitId } = body;
+      let query = admin.from("user_assignments").delete()
+        .eq("user_id", userId).eq("space_id", spaceId);
+      if (unitId) {
+        query = query.eq("unit_id", unitId);
+      } else {
+        query = query.is("unit_id", null);
+      }
+      const { error } = await query;
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: true });
+    }
+
+    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (err) {
     console.error("User update error:", err);
     return NextResponse.json({ error: "Failed to update user" }, { status: 500 });

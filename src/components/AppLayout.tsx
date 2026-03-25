@@ -197,7 +197,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   }, [view, spaces]);
 
   useEffect(() => {
-    getAllSpaces(mirrorOrgId).then(setSpaces);
+    getAllSpaces(mirrorOrgId, authUser?.assignments).then(setSpaces);
     setTimeout(() => setInitialLoad(false), 300);
 
     // Set API key from environment variable
@@ -247,8 +247,13 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   }, [contextDeleteItemId]);
 
   async function refreshSpaces() {
-    const s = await getAllSpaces(mirrorOrgId);
+    const s = await getAllSpaces(mirrorOrgId, authUser?.assignments);
     setSpaces(s);
+  }
+
+  // Wrapper that passes user assignments to unit queries (for tenant filtering)
+  async function loadUnits(spaceId: string) {
+    return getUnitsForSpace(spaceId, authUser?.assignments);
   }
 
   async function selectSpace(id: string) {
@@ -260,7 +265,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
     const space = await getSpace(id);
     setTimeout(async () => {
       if (space && hasUnits(space.icon)) {
-        const [u, i] = await Promise.all([getUnitsForSpace(id), getItemsForSpace(id)]);
+        const [u, i] = await Promise.all([loadUnits(id), getItemsForSpace(id)]);
         setUnits(u);
         setItems(i.filter((i) => !i.unitId)); // building-level assets
         setView("units");
@@ -302,7 +307,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
       } else if (selectedSpaceId) {
         const space = await getSpace(selectedSpaceId);
         if (space && hasUnits(space.icon)) {
-          const [u, i] = await Promise.all([getUnitsForSpace(selectedSpaceId), getItemsForSpace(selectedSpaceId)]);
+          const [u, i] = await Promise.all([loadUnits(selectedSpaceId), getItemsForSpace(selectedSpaceId)]);
           setUnits(u);
           setItems(i.filter((i) => !i.unitId));
           setView("units");
@@ -314,7 +319,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
     } else if (view === "unit") {
       setSelectedUnitId(null);
       if (selectedSpaceId) {
-        const [u, i] = await Promise.all([getUnitsForSpace(selectedSpaceId), getItemsForSpace(selectedSpaceId)]);
+        const [u, i] = await Promise.all([loadUnits(selectedSpaceId), getItemsForSpace(selectedSpaceId)]);
         setUnits(u);
         setItems(i.filter((i) => !i.unitId));
       }
@@ -367,7 +372,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
     } else if (renameTarget.type === "unit") {
       if (!selectedSpaceId) return;
       await updateUnit(renameTarget.id, { name: newName });
-      setUnits(await getUnitsForSpace(selectedSpaceId));
+      setUnits(await loadUnits(selectedSpaceId));
       toast("Unit renamed");
     } else {
       if (!selectedSpaceId) return;
@@ -398,7 +403,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
       }
     }
 
-    const [u, i] = await Promise.all([getUnitsForSpace(selectedSpaceId), getItemsForSpace(selectedSpaceId)]);
+    const [u, i] = await Promise.all([loadUnits(selectedSpaceId), getItemsForSpace(selectedSpaceId)]);
     setUnits(u);
     setItems(i.filter((i) => !i.unitId));
     await refreshSpaces();
@@ -413,7 +418,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   async function handleContextDeleteUnit() {
     if (!contextDeleteUnitId || !selectedSpaceId) return;
     await deleteUnit(contextDeleteUnitId);
-    const [u, i] = await Promise.all([getUnitsForSpace(selectedSpaceId), getItemsForSpace(selectedSpaceId)]);
+    const [u, i] = await Promise.all([loadUnits(selectedSpaceId), getItemsForSpace(selectedSpaceId)]);
     setUnits(u);
     setItems(i.filter((i) => !i.unitId));
     await refreshSpaces();
