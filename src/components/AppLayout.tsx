@@ -122,6 +122,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   const [editName, setEditName] = useState("");
 
   const searchBoxRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const [searchPos, setSearchPos] = useState({ top: 0, left: 0, width: 0 });
 
   // Drag
@@ -1044,24 +1045,28 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
 
           {/* User avatar + dropdown */}
           {authUser && (
-            <div className="relative ml-3 flex-shrink-0">
+            <div className="relative ml-3 flex-shrink-0" ref={userMenuRef}>
               <button onClick={() => setShowUserMenu(!showUserMenu)}
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold no-min-size cursor-pointer transition-all ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold cursor-pointer transition-all ${
                   showUserMenu ? "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-[#0c1222]" : "hover:ring-2 hover:ring-gray-300 dark:hover:ring-gray-600"
                 } bg-blue-600`}>
                 {authUser.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)}
               </button>
-              {showUserMenu && (
+              {showUserMenu && createPortal(
                 <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-[#1a2332] rounded-xl shadow-xl border border-gray-200/60 dark:border-gray-700 z-50 overflow-hidden animate-scale-in">
+                  <div className="fixed inset-0 z-[200]" onClick={() => setShowUserMenu(false)} />
+                  <div className="fixed w-64 bg-white dark:bg-[#1a2332] rounded-xl shadow-xl border border-gray-200/60 dark:border-gray-700 z-[201] overflow-hidden animate-scale-in"
+                    style={{
+                      top: (userMenuRef.current?.getBoundingClientRect().bottom ?? 0) + 8,
+                      right: window.innerWidth - (userMenuRef.current?.getBoundingClientRect().right ?? 0),
+                    }}>
                     <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
                       <p className="text-sm font-semibold dark:text-white truncate">{authUser.name}</p>
                       <p className="text-xs text-gray-400 truncate">{authUser.email}</p>
                     </div>
                     <div className="py-1">
-                      <button onClick={(e) => { e.stopPropagation(); toggleTheme(); }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer no-min-size">
+                      <button onClick={() => { toggleTheme(); setShowUserMenu(false); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
                         {theme === "light" ? (
                           <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
                         ) : (
@@ -1071,7 +1076,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                       </button>
                       {(authUser.role === "org_admin" || authUser.role === "super_admin") && (
                         <button onClick={() => { setView("team"); setSelectedSpaceId(null); setSidebarOpen(false); setShowUserMenu(false); }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer no-min-size">
+                          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
                           <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                           </svg>
@@ -1081,7 +1086,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                     </div>
                     <div className="border-t border-gray-100 dark:border-gray-800 py-1">
                       <button onClick={() => { setShowUserMenu(false); logout(); }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer no-min-size">
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
                         <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
@@ -1089,7 +1094,8 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                       </button>
                     </div>
                   </div>
-                </>
+                </>,
+                document.body
               )}
             </div>
           )}
