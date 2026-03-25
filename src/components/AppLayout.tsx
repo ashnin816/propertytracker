@@ -10,6 +10,7 @@ import {
   getItemCountForSpace, getDocumentCountForSpace,
   getDocumentsForItem, addDocument, deleteDocument, updateDocument,
   getDocumentCountForItem,
+  getDocumentCountsForItems,
   globalSearch, SearchResult, getRecentActivity, getAllDocumentsWithContext,
   getDocument,
 } from "@/lib/supabase-storage";
@@ -172,17 +173,13 @@ export default function AppLayout() {
     else setSpaceCounts({});
   }, [spaces]);
 
-  // Load document counts whenever items change
+  // Load document counts whenever items change (single batch query)
   useEffect(() => {
-    async function loadDocCounts() {
-      const counts: Record<string, number> = {};
-      for (const item of items) {
-        counts[item.id] = await getDocumentCountForItem(item.id);
-      }
-      setDocumentCounts(counts);
+    if (items.length > 0) {
+      getDocumentCountsForItems(items.map((i) => i.id)).then(setDocumentCounts);
+    } else {
+      setDocumentCounts({});
     }
-    if (items.length > 0) loadDocCounts();
-    else setDocumentCounts({});
   }, [items]);
 
   // Load recent activity when on home view

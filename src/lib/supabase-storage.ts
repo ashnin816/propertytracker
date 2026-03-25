@@ -122,6 +122,15 @@ export async function getDocumentCountForItem(itemId: string): Promise<number> {
   return count || 0;
 }
 
+export async function getDocumentCountsForItems(itemIds: string[]): Promise<Record<string, number>> {
+  if (itemIds.length === 0) return {};
+  const { data } = await supabase.from("documents").select("item_id").in("item_id", itemIds);
+  const counts: Record<string, number> = {};
+  for (const id of itemIds) counts[id] = 0;
+  for (const row of data || []) counts[row.item_id] = (counts[row.item_id] || 0) + 1;
+  return counts;
+}
+
 // --- Documents ---
 export async function getDocumentsForItem(itemId: string): Promise<Document[]> {
   const { data } = await supabase.from("documents").select("*").eq("item_id", itemId).order("created_at", { ascending: false });
