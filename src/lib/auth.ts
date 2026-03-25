@@ -38,27 +38,49 @@ export async function getSession() {
 }
 
 export async function getProfile(): Promise<UserProfile | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error("Auth error:", userError);
+      return null;
+    }
 
-  const { data: profile } = await supabase.from("profiles")
-    .select("*, organizations(name)")
-    .eq("id", user.id)
-    .single();
+    // Simple query first — no join
+    const { data: profile, error: profileError } = await supabase.from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
 
-  if (!profile) return null;
+    if (profileError) {
+      console.error("Profile error:", profileError);
+      return null;
+    }
 
-  const org = (profile as Record<string, unknown>).organizations as Record<string, unknown> | null;
+    if (!profile) return null;
 
-  return {
-    id: profile.id,
-    email: profile.email,
-    name: profile.name,
-    role: profile.role as UserProfile["role"],
-    orgId: profile.org_id,
-    orgName: org?.name as string | undefined,
-    avatarUrl: profile.avatar_url,
-  };
+    // Get org name separately if org_id exists
+    let orgName: string | undefined;
+    if (profile.org_id) {
+      const { data: org } = await supabase.from("organizations")
+        .select("name")
+        .eq("id", profile.org_id)
+        .single();
+      orgName = org?.name;
+    }
+
+    return {
+      id: profile.id,
+      email: profile.email,
+      name: profile.name,
+      role: profile.role as UserProfile["role"],
+      orgId: profile.org_id,
+      orgName,
+      avatarUrl: profile.avatar_url,
+    };
+  } catch (err) {
+    console.error("getProfile error:", err);
+    return null;
+  }
 }
 
 export async function setupSuperAdmin() {
