@@ -37,7 +37,14 @@ export async function getSpace(id: string): Promise<Space | undefined> {
 }
 
 export async function createSpace(name: string, icon: string): Promise<Space> {
-  const { data } = await supabase.from("spaces").insert({ name, icon }).select().single();
+  // Get current user's org_id
+  const { data: { user } } = await supabase.auth.getUser();
+  let orgId = null;
+  if (user) {
+    const { data: profile } = await supabase.from("profiles").select("org_id").eq("id", user.id).single();
+    orgId = profile?.org_id;
+  }
+  const { data } = await supabase.from("spaces").insert({ name, icon, org_id: orgId }).select().single();
   return toSpace(data!);
 }
 

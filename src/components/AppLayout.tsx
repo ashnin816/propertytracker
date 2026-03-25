@@ -36,6 +36,7 @@ import AnalyzeModal from "./AnalyzeModal";
 import ContextMenu from "./ContextMenu";
 import ItemPicker from "./ItemPicker";
 import AskAI from "./AskAI";
+import { useAuth } from "./AuthProvider";
 import InviteModal from "./InviteModal";
 import { getAllMembers, getInitials, ROLE_LABELS, loadDemoTeam, TeamMember } from "@/lib/team";
 import RenameModal from "./RenameModal";
@@ -124,6 +125,7 @@ export default function AppLayout() {
   const dragCounter = { current: 0 };
 
   const { toast } = useToast();
+  const { user: authUser, logout } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
 
   // Update selectedSpace when selectedSpaceId changes
@@ -878,6 +880,26 @@ export default function AppLayout() {
             </div>
           )}
         </div>
+
+        {/* User info */}
+        {authUser && (
+          <div className="px-3 py-2 border-t border-gray-200/60 dark:border-gray-800 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 no-min-size">
+                  {authUser.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium dark:text-gray-200 truncate">{authUser.name}</p>
+                  <p className="text-[10px] text-gray-400 truncate">{authUser.orgName || authUser.email}</p>
+                </div>
+              </div>
+              <button onClick={logout} className="text-[10px] text-gray-400 hover:text-red-500 font-medium cursor-pointer no-min-size">
+                Sign Out
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Team section */}
         {teamMembers.length > 0 && (
