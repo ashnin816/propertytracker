@@ -37,8 +37,7 @@ import ContextMenu from "./ContextMenu";
 import ItemPicker from "./ItemPicker";
 import AskAI from "./AskAI";
 import { useAuth } from "./AuthProvider";
-import InviteModal from "./InviteModal";
-import { getAllMembers, getInitials, ROLE_LABELS, loadDemoTeam, TeamMember } from "@/lib/team";
+import TeamPanel from "./TeamPanel";
 import RenameModal from "./RenameModal";
 import BulkUnitsModal from "./BulkUnitsModal";
 
@@ -82,8 +81,6 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   const [contextDeleteUnitId, setContextDeleteUnitId] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<{ type: "space" | "unit" | "item"; id: string; name: string } | null>(null);
   const [showBulkUnits, setShowBulkUnits] = useState(false);
-  const [showInvite, setShowInvite] = useState(false);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [deleteDocId, setDeleteDocId] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -199,8 +196,6 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
 
   useEffect(() => {
     getAllSpaces(mirrorOrgId).then(setSpaces);
-    loadDemoTeam();
-    setTeamMembers(getAllMembers());
     setTimeout(() => setInitialLoad(false), 300);
 
     // Set API key from environment variable
@@ -922,28 +917,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
         )}
 
         {/* Team section */}
-        {teamMembers.length > 0 && (
-          <div className="px-3 py-2 border-t border-gray-200/60 dark:border-gray-800 flex-shrink-0">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Team</span>
-              <button onClick={() => setShowInvite(true)}
-                className="text-xs text-blue-600 font-medium cursor-pointer no-min-size hover:text-blue-700">Invite</button>
-            </div>
-            <div className="flex items-center gap-1">
-              {teamMembers.slice(0, 5).map((m) => (
-                <div key={m.id} title={`${m.name} (${ROLE_LABELS[m.role]})`}
-                  className={`w-7 h-7 rounded-full ${m.avatar} flex items-center justify-center text-white text-[9px] font-bold no-min-size cursor-default`}>
-                  {getInitials(m.name)}
-                </div>
-              ))}
-              {teamMembers.length > 5 && (
-                <div className="w-7 h-7 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-white text-[9px] font-bold no-min-size">
-                  +{teamMembers.length - 5}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        <TeamPanel spaces={spaces} />
 
         {/* Bottom actions */}
         <div className="p-3 border-t border-gray-200/60 dark:border-gray-800 flex-shrink-0 space-y-2">
@@ -1635,9 +1609,6 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
         <DeleteModal title={`Delete "${contextDeleteSpaceData.space.name}"?`} message="This space and everything inside it will be permanently removed."
           warning={contextDeleteSpaceData.itemCount > 0 ? `${contextDeleteSpaceData.itemCount} item${contextDeleteSpaceData.itemCount !== 1 ? "s" : ""} and all their documents will be deleted.` : undefined}
           onConfirm={handleDeleteSpace} onCancel={() => setContextDeleteSpaceId(null)} />
-      )}
-      {showInvite && (
-        <InviteModal spaces={spaces} onInvite={() => { setTeamMembers(getAllMembers()); setShowInvite(false); toast("Invite sent"); }} onClose={() => setShowInvite(false)} />
       )}
       {showBulkUnits && (
         <BulkUnitsModal spaceType={selectedSpace?.icon} onSubmit={handleBulkUnits} onClose={() => setShowBulkUnits(false)} />
