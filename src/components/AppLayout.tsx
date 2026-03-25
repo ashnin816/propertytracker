@@ -20,6 +20,7 @@ import { compressImage, isImageDataUrl } from "@/lib/compress";
 import { extractText, extractSmartPages, isExtractable } from "@/lib/ocr";
 import { loadDemoData } from "@/lib/demo";
 import { generateDocumentName } from "@/lib/docname";
+import { parseDocDetails } from "@/lib/docdetails";
 import { analyzeDocument, hasApiKey, setApiKey as setClaudeKey } from "@/lib/claude";
 import { useToast } from "./Toast";
 import { useTheme } from "./ThemeProvider";
@@ -1468,14 +1469,19 @@ export default function AppLayout() {
                   </div>
                 ) : (
                   <div className="card rounded-2xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700/50">
-                    {documents.map((doc) => (
+                    {documents.map((doc) => {
+                      const details = parseDocDetails(doc.extractedText);
+                      const isImage = doc.fileType.startsWith("image/");
+                      const hasRealUrl = doc.fileUrl && doc.fileUrl !== "demo";
+                      return (
                       <div key={doc.id} className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
                         onClick={() => setPreviewDoc(doc)}>
                         <div className="flex items-center gap-3 min-w-0">
-                          {doc.fileType.startsWith("image/") ? (
-                            <img src={doc.fileUrl} alt={doc.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                          {/* Thumbnail */}
+                          {isImage && hasRealUrl ? (
+                            <img src={doc.fileUrl} alt={doc.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
                           ) : (
-                            <DocTypeIcon fileType={doc.fileType} fileName={doc.name} className="w-10 h-10" />
+                            <DocTypeIcon fileType={doc.fileType} fileName={doc.name} className="w-12 h-12" />
                           )}
                           <div className="min-w-0">
                             {editingDocId === doc.id ? (
@@ -1487,8 +1493,25 @@ export default function AppLayout() {
                             ) : (
                               <p className="text-sm font-medium truncate dark:text-gray-200">{doc.name}</p>
                             )}
+                            {/* Rich details */}
+                            {details && (
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                {details.type && (
+                                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 no-min-size">{details.type}</span>
+                                )}
+                                {details.amount && (
+                                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 no-min-size">{details.amount}</span>
+                                )}
+                                {details.expiry && (
+                                  <span className="text-[10px] text-amber-600 dark:text-amber-400 no-min-size">Exp: {details.expiry}</span>
+                                )}
+                                {details.date && !details.expiry && (
+                                  <span className="text-[10px] text-gray-400 no-min-size">{details.date}</span>
+                                )}
+                              </div>
+                            )}
                             <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-xs text-gray-400">{timeAgo(doc.createdAt)}</span>
+                              <span className="text-[10px] text-gray-400">{timeAgo(doc.createdAt)}</span>
                               {doc.ocrStatus === "processing" && <span className="text-[10px] text-blue-500 font-medium">Extracting&hellip;</span>}
                               {doc.ocrStatus === "done" && doc.extractedText && <span className="text-[10px] text-emerald-500 font-medium">Searchable</span>}
                             </div>
@@ -1509,7 +1532,8 @@ export default function AppLayout() {
                           </button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
