@@ -828,7 +828,7 @@ export default function AppLayout() {
           {spaces.length === 0 ? (
             <div className="px-4 py-8 text-center">
               <p className="text-sm text-gray-400 mb-3">No spaces yet</p>
-              <button onClick={async () => { loadDemoData(); await refreshSpaces(); toast("Demo data loaded"); }}
+              <button onClick={async () => { await loadDemoData(); await refreshSpaces(); toast("Demo data loaded"); }}
                 className="text-xs text-blue-500 font-medium hover:text-blue-600 no-min-size">
                 Try demo data
               </button>
