@@ -8,6 +8,7 @@ export interface UserProfile {
   orgId: string | null;
   orgName?: string;
   avatarUrl?: string;
+  status: "active" | "inactive";
 }
 
 export async function signIn(email: string, password: string) {
@@ -76,6 +77,7 @@ export async function getProfile(): Promise<UserProfile | null> {
       orgId: profile.org_id,
       orgName,
       avatarUrl: profile.avatar_url,
+      status: profile.status || "active",
     };
   } catch (err) {
     console.error("getProfile error:", err);

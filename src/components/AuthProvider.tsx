@@ -40,6 +40,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = onAuthChange(async (event) => {
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         const profile = await getProfile();
+        if (profile && profile.status === "inactive") {
+          await signOut();
+          setUser(null);
+          return;
+        }
         setUser(profile);
       } else if (event === "SIGNED_OUT") {
         setUser(null);
@@ -52,6 +57,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(email: string, password: string) {
     await signIn(email, password);
     const profile = await getProfile();
+
+    // Block inactive users
+    if (profile && profile.status === "inactive") {
+      await signOut();
+      throw new Error("Your account has been deactivated. Contact your organization admin.");
+    }
 
     // Auto-setup super admin on first login
     if (email === SUPER_ADMIN_EMAIL && profile && profile.role !== "super_admin") {

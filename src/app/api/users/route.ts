@@ -80,6 +80,38 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// PATCH — update user (status toggle, etc.)
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { userId, status } = body;
+
+    if (!userId || !status || !["active", "inactive"].includes(status)) {
+      return NextResponse.json({ error: "userId and valid status required" }, { status: 400 });
+    }
+
+    const admin = getAdminClient();
+
+    // Update profile status
+    const { error } = await admin.from("profiles").update({ status }).eq("id", userId);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Ban/unban auth user to invalidate sessions
+    if (status === "inactive") {
+      await admin.auth.admin.updateUserById(userId, { ban_duration: "876000h" });
+    } else {
+      await admin.auth.admin.updateUserById(userId, { ban_duration: "none" });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("User update error:", err);
+    return NextResponse.json({ error: "Failed to update user" }, { status: 500 });
+  }
+}
+
 // DELETE — remove a user
 export async function DELETE(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get("user_id");

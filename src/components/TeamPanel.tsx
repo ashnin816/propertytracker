@@ -9,6 +9,7 @@ interface TeamMember {
   email: string;
   name: string;
   role: string;
+  status: string;
   org_id: string;
   created_at: string;
 }
@@ -27,13 +28,6 @@ const ROLE_COLORS: Record<string, string> = {
   tenant: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
 };
 
-const ROLE_DESCRIPTIONS: Record<string, string> = {
-  org_admin: "Full access to all properties and team management",
-  manager: "Manage properties, units, and documents",
-  technician: "View properties and upload documents",
-  tenant: "View assigned unit only",
-};
-
 const AVATAR_COLORS = ["bg-blue-500", "bg-emerald-500", "bg-violet-500", "bg-amber-500", "bg-rose-500", "bg-cyan-500"];
 
 interface TeamPanelProps {
@@ -45,7 +39,8 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>("all");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("active");
 
   // Add form
   const [name, setName] = useState("");
@@ -58,6 +53,9 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
   // Delete
   const [deleteUser, setDeleteUser] = useState<TeamMember | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Status toggle
+  const [togglingStatus, setTogglingStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.orgId) loadMembers();
@@ -92,6 +90,18 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     setCreating(false);
   }
 
+  async function handleToggleStatus(member: TeamMember) {
+    setTogglingStatus(member.id);
+    const newStatus = member.status === "active" ? "inactive" : "active";
+    await fetch("/api/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: member.id, status: newStatus }),
+    });
+    await loadMembers();
+    setTogglingStatus(null);
+  }
+
   async function handleDelete() {
     if (!deleteUser) return;
     setDeleting(true);
@@ -109,7 +119,14 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   }
 
-  const filtered = filter === "all" ? members : members.filter((m) => m.role === filter);
+  // Filtering
+  const filtered = members.filter((m) => {
+    const roleMatch = roleFilter === "all" || m.role === roleFilter;
+    const statusMatch = statusFilter === "all" || (m.status || "active") === statusFilter;
+    return roleMatch && statusMatch;
+  });
+  const activeCount = members.filter((m) => (m.status || "active") === "active").length;
+  const inactiveCount = members.filter((m) => m.status === "inactive").length;
   const roleCounts = members.reduce((acc, m) => { acc[m.role] = (acc[m.role] || 0) + 1; return acc; }, {} as Record<string, number>);
 
   if (loading) {
@@ -127,11 +144,11 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {members.length} member{members.length !== 1 ? "s" : ""} in your organization
+              {activeCount} active member{activeCount !== 1 ? "s" : ""}{inactiveCount > 0 ? ` · ${inactiveCount} inactive` : ""}
             </p>
           </div>
           <button onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all font-medium text-sm shadow-lg shadow-blue-500/20 cursor-pointer no-min-size">
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all font-medium text-sm shadow-lg shadow-blue-500/20 cursor-pointer">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
             </svg>
@@ -139,19 +156,37 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
           </button>
         </div>
 
-        {/* Role filter pills */}
-        <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1">
-          <button onClick={() => setFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all no-min-size cursor-pointer whitespace-nowrap ${
-              filter === "all" ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-2 mb-5">
+          {/* Status filters */}
+          {(["active", "inactive", "all"] as const).map((s) => {
+            const count = s === "all" ? members.length : s === "active" ? activeCount : inactiveCount;
+            if (s === "inactive" && inactiveCount === 0 && statusFilter !== "inactive") return null;
+            return (
+              <button key={s} onClick={() => setStatusFilter(s)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
+                  statusFilter === s ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                }`}>
+                {s === "all" ? "All" : s === "active" ? "Active" : "Inactive"} ({count})
+              </button>
+            );
+          })}
+
+          {/* Divider */}
+          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+
+          {/* Role filters */}
+          <button onClick={() => setRoleFilter("all")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
+              roleFilter === "all" ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
             }`}>
-            All ({members.length})
+            All Roles
           </button>
           {Object.entries(ROLE_LABELS).map(([key, label]) => (
             roleCounts[key] ? (
-              <button key={key} onClick={() => setFilter(key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all no-min-size cursor-pointer whitespace-nowrap ${
-                  filter === key ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+              <button key={key} onClick={() => setRoleFilter(key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
+                  roleFilter === key ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                 }`}>
                 {label} ({roleCounts[key]})
               </button>
@@ -161,14 +196,18 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
 
         {/* Member list */}
         <div className="space-y-2">
-          {filtered.map((m, i) => {
+          {filtered.map((m) => {
             const isCurrentUser = m.id === user?.id;
+            const isInactive = m.status === "inactive";
             const colorIndex = members.indexOf(m);
+            const canManage = !isCurrentUser && m.role !== "org_admin";
             return (
               <div key={m.id}
-                className="flex items-center gap-4 p-4 bg-white dark:bg-[#1a2332] rounded-xl border border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-colors">
+                className={`flex items-center gap-4 p-4 bg-white dark:bg-[#1a2332] rounded-xl border border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-colors ${
+                  isInactive ? "opacity-50" : ""
+                }`}>
                 {/* Avatar */}
-                <div className={`w-10 h-10 rounded-full ${AVATAR_COLORS[colorIndex % AVATAR_COLORS.length]} flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
+                <div className={`w-10 h-10 rounded-full ${isInactive ? "bg-gray-400" : AVATAR_COLORS[colorIndex % AVATAR_COLORS.length]} flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
                   {getInitials(m.name)}
                 </div>
 
@@ -178,6 +217,9 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                     <p className="text-sm font-semibold dark:text-white truncate">{m.name}</p>
                     {isCurrentUser && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">You</span>
+                    )}
+                    {isInactive && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-medium flex-shrink-0">Inactive</span>
                     )}
                   </div>
                   <p className="text-xs text-gray-400 truncate">{m.email}</p>
@@ -196,17 +238,44 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                 </div>
 
                 {/* Actions */}
-                <div className="flex-shrink-0">
-                  {!isCurrentUser && m.role !== "org_admin" ? (
-                    <button onClick={() => setDeleteUser(m)}
-                      className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors no-min-size cursor-pointer">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  ) : (
-                    <div className="w-8" />
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {canManage && (
+                    <>
+                      {/* Deactivate / Reactivate */}
+                      <button
+                        onClick={() => handleToggleStatus(m)}
+                        disabled={togglingStatus === m.id}
+                        title={isInactive ? "Reactivate user" : "Deactivate user"}
+                        className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                          isInactive
+                            ? "text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                            : "text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                        } ${togglingStatus === m.id ? "opacity-50" : ""}`}>
+                        {isInactive ? (
+                          // Play icon (reactivate)
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        ) : (
+                          // Pause icon (deactivate)
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
+                      </button>
+
+                      {/* Delete (secondary) */}
+                      <button onClick={() => setDeleteUser(m)}
+                        title="Permanently delete"
+                        className="p-2 rounded-lg text-gray-300 dark:text-gray-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </>
                   )}
+                  {!canManage && <div className="w-16" />}
                 </div>
               </div>
             );
@@ -215,7 +284,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
 
         {filtered.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-sm text-gray-400">No {filter !== "all" ? ROLE_LABELS[filter]?.toLowerCase() + "s" : "members"} found</p>
+            <p className="text-sm text-gray-400">No members match the current filters</p>
           </div>
         )}
       </div>
@@ -235,19 +304,19 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Name</label>
                   <input type="text" value={name} onChange={(e) => setName(e.target.value)} required autoFocus
                     placeholder="Jane Smith"
-                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-[#0c1222] dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 no-min-size" />
+                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-[#0c1222] dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Email</label>
                   <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
                     placeholder="jane@company.com"
-                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-[#0c1222] dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 no-min-size" />
+                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-[#0c1222] dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Temporary Password</label>
                   <input type="text" value={password} onChange={(e) => setPassword(e.target.value)} required
                     placeholder="Min 6 characters" minLength={6}
-                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-[#0c1222] dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 no-min-size" />
+                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-[#0c1222] dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
 
@@ -257,7 +326,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                 <div className="grid grid-cols-2 gap-2">
                   {(["manager", "technician", "tenant"] as const).map((r) => (
                     <button key={r} type="button" onClick={() => setRole(r)}
-                      className={`p-3 rounded-xl text-left transition-all no-min-size cursor-pointer ${
+                      className={`p-3 rounded-xl text-left transition-all cursor-pointer ${
                         role === r ? "bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500" : "bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
                       }`}>
                       <p className="text-xs font-semibold dark:text-white">{ROLE_LABELS[r]}</p>
@@ -277,11 +346,11 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
 
               <div className="flex gap-3">
                 <button type="button" onClick={() => setShowAdd(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#0c1222] active:scale-[0.98] transition-all font-medium text-sm no-min-size cursor-pointer">
+                  className="flex-1 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#0c1222] active:scale-[0.98] transition-all font-medium text-sm cursor-pointer">
                   Cancel
                 </button>
                 <button type="submit" disabled={creating || !name || !email || !password}
-                  className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium text-sm no-min-size cursor-pointer">
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium text-sm cursor-pointer">
                   {creating ? "Creating..." : "Create User"}
                 </button>
               </div>
@@ -300,17 +369,18 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold dark:text-white mb-1">Remove {deleteUser.name}?</h3>
-              <p className="text-sm text-gray-400">This will delete their account and remove all access.</p>
+              <h3 className="text-lg font-bold dark:text-white mb-1">Permanently delete {deleteUser.name}?</h3>
+              <p className="text-sm text-gray-400">This cannot be undone. Their account and all access will be permanently removed.</p>
+              <p className="text-xs text-gray-400 mt-2">Consider deactivating instead if you may need to restore access later.</p>
             </div>
             <div className="px-6 pb-6 flex gap-3">
               <button onClick={() => setDeleteUser(null)}
-                className="flex-1 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#0c1222] active:scale-[0.98] transition-all font-medium text-sm no-min-size cursor-pointer">
+                className="flex-1 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#0c1222] active:scale-[0.98] transition-all font-medium text-sm cursor-pointer">
                 Cancel
               </button>
               <button onClick={handleDelete} disabled={deleting}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 active:scale-[0.98] disabled:opacity-40 transition-all font-medium text-sm no-min-size cursor-pointer">
-                {deleting ? "Removing..." : "Remove User"}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 active:scale-[0.98] disabled:opacity-40 transition-all font-medium text-sm cursor-pointer">
+                {deleting ? "Deleting..." : "Delete Permanently"}
               </button>
             </div>
           </div>
