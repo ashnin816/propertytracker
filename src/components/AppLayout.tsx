@@ -918,7 +918,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="h-14 px-4 flex items-center justify-between border-b border-gray-200/60 dark:border-gray-800 bg-white/90 dark:bg-[#0c1222]/90 backdrop-blur-xl flex-shrink-0">
+        <header className="h-14 px-4 flex items-center gap-3 border-b border-gray-200/60 dark:border-gray-800 bg-white/90 dark:bg-[#0c1222]/90 backdrop-blur-xl flex-shrink-0">
           <div className="flex items-center gap-3">
             {/* Mobile menu button */}
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-1.5 text-gray-400 hover:text-gray-600 rounded-lg no-min-size">
@@ -971,6 +971,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
             </div>
           </div>
 
+          <div className="flex items-center gap-3 ml-auto">
           {/* Space actions in header */}
           {view === "space" && items.length > 0 && (
             <div className="flex items-center gap-2 no-min-size">
@@ -1045,7 +1046,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
 
           {/* User avatar + dropdown */}
           {authUser && (
-            <div className="relative ml-3 flex-shrink-0" ref={userMenuRef}>
+            <div className="relative flex-shrink-0" ref={userMenuRef}>
               <button onClick={() => setShowUserMenu(!showUserMenu)}
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold cursor-pointer transition-all ${
                   showUserMenu ? "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-[#0c1222]" : "hover:ring-2 hover:ring-gray-300 dark:hover:ring-gray-600"
@@ -1099,6 +1100,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
               )}
             </div>
           )}
+          </div>
         </header>
 
         {/* Content area */}
