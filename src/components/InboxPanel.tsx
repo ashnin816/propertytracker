@@ -197,67 +197,7 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
               const noMatch = aiProcessed && !hasAiSuggestion;
 
               return (
-                <div key={doc.id} className={`bg-white dark:bg-[#1a2332] rounded-2xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${
-                  hasFullMatch ? "border-emerald-300 dark:border-emerald-800" : hasPartialMatch ? "border-blue-200 dark:border-blue-800" : "border-gray-200/60 dark:border-gray-800"
-                }`}>
-                  {/* AI Status Banner */}
-                  {hasFullMatch && (
-                    <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 px-4 py-3 flex items-center gap-3 border-b border-emerald-200 dark:border-emerald-800/50">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">AI Match Found</p>
-                        <p className="text-[11px] text-emerald-700/70 dark:text-emerald-400/70 truncate">{doc.suggestedMatchReason}</p>
-                      </div>
-                      <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 rounded-full flex-shrink-0 uppercase tracking-wider">Auto-matched</span>
-                    </div>
-                  )}
-
-                  {hasPartialMatch && (
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 px-4 py-3 flex items-center gap-3 border-b border-blue-200 dark:border-blue-800/50">
-                      <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                        </svg>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-blue-800 dark:text-blue-300">AI Matched Property</p>
-                        <p className="text-[11px] text-blue-700/70 dark:text-blue-400/70 truncate">{doc.suggestedMatchReason || "Property identified — select an asset below"}</p>
-                      </div>
-                      <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 rounded-full flex-shrink-0 uppercase tracking-wider">Select Asset</span>
-                    </div>
-                  )}
-
-                  {isAnalyzing && (
-                    <div className="px-4 py-3 flex items-center gap-3 border-b border-violet-100 dark:border-violet-800/50 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20">
-                      <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center flex-shrink-0">
-                        <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-violet-800 dark:text-violet-300">AI Analyzing</p>
-                        <p className="text-[11px] text-violet-600/70 dark:text-violet-400/70">Reading document and matching to your properties...</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {noMatch && (
-                    <div className="px-4 py-3 flex items-center gap-3 border-b border-amber-100 dark:border-amber-800/50 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20">
-                      <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-amber-800 dark:text-amber-300">AI Analyzed — No Match</p>
-                        <p className="text-[11px] text-amber-700/70 dark:text-amber-400/70">{doc.suggestedMatchReason || "Couldn't determine which property this belongs to"}</p>
-                      </div>
-                      <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 rounded-full flex-shrink-0 uppercase tracking-wider">Manual</span>
-                    </div>
-                  )}
-
+                <div key={doc.id} className="bg-white dark:bg-[#1a2332] rounded-2xl border border-gray-200/60 dark:border-gray-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                   {/* Document info */}
                   <div className="flex items-start gap-3 p-4 pb-3">
                     <button onClick={() => setPreviewDoc(doc)}
@@ -265,7 +205,6 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
                       <DocTypeIcon fileType={doc.fileType} fileName={doc.fileName} className="w-6 h-6 text-gray-500" />
                     </button>
                     <div className="min-w-0 flex-1">
-                      {/* Editable name */}
                       {a.editingName ? (
                         <div className="flex items-center gap-2">
                           <input type="text" value={a.name} onChange={(e) => handleNameChange(doc.id, e.target.value)}
@@ -275,30 +214,18 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
                             className="text-sm font-semibold dark:text-white bg-transparent border-b-2 border-blue-500 outline-none flex-1 py-0.5" />
                         </div>
                       ) : (
-                        <div className="group">
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => setPreviewDoc(doc)}
-                              className="text-sm font-semibold dark:text-white text-left cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                              {a.name}
-                            </button>
-                            <button onClick={() => toggleEditName(doc.id)}
-                              className="p-0.5 text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex-shrink-0"
-                              title="Edit name">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
-                            </button>
-                          </div>
-                          {aiNamed && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30 px-2 py-0.5 rounded-full">
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                </svg>
-                                AI Named
-                              </span>
-                            </div>
-                          )}
+                        <div className="flex items-center gap-2 group">
+                          <button onClick={() => setPreviewDoc(doc)}
+                            className="text-sm font-semibold dark:text-white text-left cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                            {a.name}
+                          </button>
+                          <button onClick={() => toggleEditName(doc.id)}
+                            className="p-0.5 text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex-shrink-0"
+                            title="Edit name">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
                         </div>
                       )}
                       <p className="text-xs text-gray-400 mt-0.5">
@@ -313,6 +240,73 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
                       </svg>
                     </button>
                   </div>
+
+                  {/* Unified AI section */}
+                  {(aiProcessed || isAnalyzing) && (
+                    <div className="mx-4 mb-3 rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800">
+                      {/* AI header bar */}
+                      <div className={`px-3 py-2 flex items-center gap-2 ${
+                        isAnalyzing ? "bg-violet-50 dark:bg-violet-900/20" :
+                        hasFullMatch ? "bg-emerald-50 dark:bg-emerald-900/20" :
+                        hasPartialMatch ? "bg-blue-50 dark:bg-blue-900/20" :
+                        "bg-amber-50 dark:bg-amber-900/20"
+                      }`}>
+                        {isAnalyzing ? (
+                          <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                        ) : (
+                          <svg className={`w-4 h-4 flex-shrink-0 ${
+                            hasFullMatch ? "text-emerald-500" : hasPartialMatch ? "text-blue-500" : "text-amber-500"
+                          }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                          </svg>
+                        )}
+                        <span className={`text-[11px] font-bold flex-1 ${
+                          isAnalyzing ? "text-violet-700 dark:text-violet-300" :
+                          hasFullMatch ? "text-emerald-700 dark:text-emerald-300" :
+                          hasPartialMatch ? "text-blue-700 dark:text-blue-300" :
+                          "text-amber-700 dark:text-amber-300"
+                        }`}>
+                          {isAnalyzing ? "AI is analyzing this document..." :
+                           hasFullMatch ? "AI Match Found" :
+                           hasPartialMatch ? "AI Matched Property" :
+                           "AI Analyzed — No Property Match"}
+                        </span>
+                        {hasFullMatch && (
+                          <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-full uppercase tracking-wider">Auto</span>
+                        )}
+                        {noMatch && (
+                          <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded-full uppercase tracking-wider">Manual</span>
+                        )}
+                      </div>
+                      {/* AI details */}
+                      {!isAnalyzing && (
+                        <div className="px-3 py-2 bg-gray-50/50 dark:bg-white/[0.02] space-y-1.5">
+                          {aiNamed && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase w-14 flex-shrink-0">Name</span>
+                              <span className="text-[11px] text-gray-600 dark:text-gray-300">{doc.fileName}</span>
+                              <span className="text-[9px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30 px-1.5 py-0.5 rounded-full">AI</span>
+                            </div>
+                          )}
+                          {doc.suggestedMatchReason && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase w-14 flex-shrink-0 pt-px">Match</span>
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400">{doc.suggestedMatchReason}</span>
+                            </div>
+                          )}
+                          {doc.suggestedSpaceName && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase w-14 flex-shrink-0">Filed</span>
+                              <span className="text-[11px] text-gray-600 dark:text-gray-300">
+                                {doc.suggestedSpaceName}{doc.suggestedItemName ? ` → ${doc.suggestedItemName}` : ""}
+                              </span>
+                              <span className="text-[9px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">AI</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Assignment controls */}
                   <div className="px-4 pb-4">
