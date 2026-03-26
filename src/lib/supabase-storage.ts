@@ -413,6 +413,15 @@ export async function assignInboxDocument(inboxDocId: string, itemId: string): P
   }
 }
 
-export async function dismissInboxDocument(id: string): Promise<void> {
-  await supabase.from("inbox_documents").update({ status: "dismissed" }).eq("id", id);
+export async function deleteInboxDocument(id: string): Promise<void> {
+  // Get the file URL to delete from storage
+  const { data: doc } = await supabase.from("inbox_documents").select("file_url").eq("id", id).single();
+  if (doc?.file_url) {
+    // Extract storage path from public URL
+    const match = doc.file_url.match(/\/documents\/(.+)$/);
+    if (match) {
+      await supabase.storage.from("documents").remove([match[1]]);
+    }
+  }
+  await supabase.from("inbox_documents").delete().eq("id", id);
 }
