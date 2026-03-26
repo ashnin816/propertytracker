@@ -7,7 +7,7 @@ import IconPicker from "./IconPicker";
 import { getCustomIcon } from "@/lib/icons";
 
 interface AddItemModalProps {
-  onAdd: (name: string, icon: string, photoUrl: string | null) => void;
+  onAdd: (name: string, icon: string, photoUrl: string | null) => void | Promise<void>;
   onClose: () => void;
   spaceType?: string;
 }
@@ -17,6 +17,7 @@ export default function AddItemModal({ onAdd, onClose, spaceType }: AddItemModal
   const [customName, setCustomName] = useState("");
   const [customPhoto, setCustomPhoto] = useState<string | null>(null);
   const [customIcon, setCustomIcon] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,8 +33,11 @@ export default function AddItemModal({ onAdd, onClose, spaceType }: AddItemModal
     filteredPresets.some((p) => p.category === cat)
   );
 
-  function handlePresetSelect(preset: (typeof ITEM_PRESETS)[0]) {
-    onAdd(preset.label, preset.key, null);
+  async function handlePresetSelect(preset: (typeof ITEM_PRESETS)[0]) {
+    if (submitting) return;
+    setSubmitting(true);
+    await onAdd(preset.label, preset.key, null);
+    setSubmitting(false);
   }
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -48,10 +52,12 @@ export default function AddItemModal({ onAdd, onClose, spaceType }: AddItemModal
     reader.readAsDataURL(file);
   }
 
-  function handleCustomSubmit(e: React.FormEvent) {
+  async function handleCustomSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!customName.trim()) return;
-    onAdd(customName.trim(), customIcon || "custom", customPhoto);
+    if (!customName.trim() || submitting) return;
+    setSubmitting(true);
+    await onAdd(customName.trim(), customIcon || "custom", customPhoto);
+    setSubmitting(false);
   }
 
   return (

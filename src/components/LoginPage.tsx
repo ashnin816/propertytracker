@@ -33,7 +33,7 @@ export default function LoginPage() {
               <path d="M24 6L4 22h6v18a2 2 0 002 2h24a2 2 0 002-2V22h6L24 6z" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <h1 className="text-2xl font-bold dark:text-white">PropertyTracker</h1>
+          <h1 className="text-2xl font-bold dark:text-white">PropertyTracker+</h1>
           <p className="text-sm text-gray-400 mt-1">Sign in to your account</p>
         </div>
 

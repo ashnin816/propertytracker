@@ -126,7 +126,7 @@ export default function AskAI({ documents, onClose, onNavigateToItem }: AskAIPro
               </svg>
             </div>
             <div>
-              <p className="font-bold text-sm text-white">Ask PropertyTracker</p>
+              <p className="font-bold text-sm text-white">Ask PropertyTracker+</p>
               <p className="text-[10px] text-white/60">{docCount} docs indexed</p>
             </div>
           </div>

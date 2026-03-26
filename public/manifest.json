@@ -1,6 +1,6 @@
 {
-  "name": "PropertyTracker",
-  "short_name": "PropertyTracker",
+  "name": "PropertyTracker+",
+  "short_name": "PropertyTracker+",
   "description": "Property document management powered by AI",
   "start_url": "/",
   "display": "standalone",

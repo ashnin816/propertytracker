@@ -841,7 +841,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                 <path d="M24 6L4 22h6v18a2 2 0 002 2h24a2 2 0 002-2V22h6L24 6z" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <span className="font-bold text-base dark:text-white">PropertyTracker</span>
+            <span className="font-bold text-base dark:text-white">PropertyTracker+</span>
           </div>
         </div>
 
@@ -940,7 +940,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
 
         {/* Bottom actions */}
         <div className="p-3 border-t border-gray-200/60 dark:border-gray-800 flex-shrink-0 space-y-2">
-          {/* Ask PropertyTracker */}
+          {/* Ask PropertyTracker+ */}
           <button onClick={async () => {
             if (!showAskAI) {
               const docs = await getAllDocumentsWithContext(authUser?.assignments);
@@ -955,7 +955,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
               </svg>
             </div>
             <div className="text-left">
-              <p className="text-sm font-semibold text-white">Ask PropertyTracker</p>
+              <p className="text-sm font-semibold text-white">Ask PropertyTracker+</p>
               <p className="text-[10px] text-white/60">AI-powered document search</p>
             </div>
           </button>
@@ -1211,7 +1211,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                         <svg className="w-14 h-14" viewBox="0 0 48 48" fill="none"><path d="M24 6L4 22h6v18a2 2 0 002 2h24a2 2 0 002-2V22h6L24 6z" fill="currentColor" opacity="0.2"/><path d="M24 6L4 22h6v18a2 2 0 002 2h24a2 2 0 002-2V22h6L24 6z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       </div>
                     </div>
-                    <h1 className="text-2xl font-bold mb-2 dark:text-white">Welcome to PropertyTracker</h1>
+                    <h1 className="text-2xl font-bold mb-2 dark:text-white">Welcome to PropertyTracker+</h1>
                     <p className="text-gray-500 dark:text-gray-400 mb-8">Manage documents for all your properties.</p>
                     <button onClick={() => setShowAddSpace(true)}
                       className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all font-semibold shadow-lg shadow-blue-500/25 cursor-pointer">

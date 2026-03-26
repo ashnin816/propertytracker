@@ -68,7 +68,7 @@ export default function AppHeader({ breadcrumbs, hidden }: AppHeaderProps) {
                   <path d="M24 6L4 22h6v18a2 2 0 002 2h24a2 2 0 002-2V22h6L24 6z" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <span className="font-bold text-base">PropertyTracker</span>
+              <span className="font-bold text-base">PropertyTracker+</span>
             </Link>
 
             {breadcrumbs && breadcrumbs.length > 0 && breadcrumbs.map((crumb, i) => (

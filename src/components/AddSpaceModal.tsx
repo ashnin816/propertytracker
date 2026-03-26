@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { SPACE_ICONS, getSpaceColors } from "@/lib/presets";
 
 interface AddSpaceModalProps {
-  onAdd: (name: string, icon: string) => void;
+  onAdd: (name: string, icon: string) => void | Promise<void>;
   onClose: () => void;
 }
 
@@ -12,6 +12,7 @@ export default function AddSpaceModal({ onAdd, onClose }: AddSpaceModalProps) {
   const [selectedIcon, setSelectedIcon] = useState("residential");
   const [name, setName] = useState("");
   const [userEdited, setUserEdited] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selected = SPACE_ICONS.find((i) => i.key === selectedIcon) || SPACE_ICONS[0];
@@ -34,10 +35,12 @@ export default function AddSpaceModal({ onAdd, onClose }: AddSpaceModalProps) {
     setUserEdited(true);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
-    onAdd(name.trim(), selectedIcon);
+    if (!name.trim() || submitting) return;
+    setSubmitting(true);
+    await onAdd(name.trim(), selectedIcon);
+    setSubmitting(false);
   }
 
   return (
@@ -121,10 +124,10 @@ export default function AddSpaceModal({ onAdd, onClose }: AddSpaceModalProps) {
             </button>
             <button
               type="submit"
-              disabled={!name.trim()}
+              disabled={!name.trim() || submitting}
               className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium"
             >
-              Add Property
+              {submitting ? "Adding..." : "Add Property"}
             </button>
           </div>
         </form>

@@ -14,13 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PropertyTracker",
+  title: "PropertyTracker+",
   description: "Property document management powered by AI",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "PropertyTracker",
+    title: "PropertyTracker+",
   },
   icons: {
     icon: "/icon.svg",

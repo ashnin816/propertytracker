@@ -111,7 +111,7 @@ export default function SuperAdminPanel({ onViewTenant }: SuperAdminPanelProps) 
               <svg viewBox="0 0 48 48" fill="none"><path d="M24 6L4 22h6v18a2 2 0 002 2h24a2 2 0 002-2V22h6L24 6z" fill="currentColor" opacity="0.2"/><path d="M24 6L4 22h6v18a2 2 0 002 2h24a2 2 0 002-2V22h6L24 6z" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
             <div>
-              <h1 className="font-bold text-base dark:text-white">PropertyTracker Admin</h1>
+              <h1 className="font-bold text-base dark:text-white">PropertyTracker+ Admin</h1>
               <p className="text-[10px] text-gray-400">Super Admin Panel</p>
             </div>
           </div>

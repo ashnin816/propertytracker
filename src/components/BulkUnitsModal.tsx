@@ -67,7 +67,7 @@ const TEMPLATES: Template[] = [
 
 interface BulkUnitsModalProps {
   spaceType?: string;
-  onSubmit: (units: string[], template: { assets: Asset[] } | null) => void;
+  onSubmit: (units: string[], template: { assets: Asset[] } | null) => void | Promise<void>;
   onClose: () => void;
 }
 
@@ -75,6 +75,7 @@ export default function BulkUnitsModal({ spaceType, onSubmit, onClose }: BulkUni
   const [prefix, setPrefix] = useState("Unit ");
   const [startNum, setStartNum] = useState("101");
   const [endNum, setEndNum] = useState("110");
+  const [submitting, setSubmitting] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState("standard");
   const [customAssets, setCustomAssets] = useState<Asset[] | null>(null);
   const [showAssetPicker, setShowAssetPicker] = useState(false);
@@ -105,16 +106,18 @@ export default function BulkUnitsModal({ spaceType, onSubmit, onClose }: BulkUni
     setShowAssetPicker(false);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isValid) return;
+    if (!isValid || submitting) return;
 
     const unitNames: string[] = [];
     for (let i = start; i <= end; i++) {
       unitNames.push(`${prefix}${i}`);
     }
 
-    onSubmit(unitNames, activeAssets.length > 0 ? { assets: activeAssets } : null);
+    setSubmitting(true);
+    await onSubmit(unitNames, activeAssets.length > 0 ? { assets: activeAssets } : null);
+    setSubmitting(false);
   }
 
   // Available presets for adding
@@ -246,9 +249,9 @@ export default function BulkUnitsModal({ spaceType, onSubmit, onClose }: BulkUni
             className="flex-1 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#0c1222] active:scale-[0.98] transition-all font-medium text-sm no-min-size cursor-pointer">
             Cancel
           </button>
-          <button type="submit" form="bulk-form" disabled={!isValid}
+          <button type="submit" form="bulk-form" disabled={!isValid || submitting}
             className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium text-sm no-min-size cursor-pointer">
-            Create {isValid ? count : 0} Units
+            {submitting ? "Creating..." : `Create ${isValid ? count : 0} Units`}
           </button>
         </div>
       </div>
