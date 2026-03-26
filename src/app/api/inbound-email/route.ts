@@ -77,28 +77,22 @@ Return ONLY valid JSON, no markdown or explanation.`,
         }
       }
     } else if (isPdf) {
-      // Extract text from PDF server-side
+      // Try text extraction first, fall back to sending PDF as document to Claude
       try {
         const pdfRes = await fetch(fileUrl);
         const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
-        const pdfData = await pdfParse(pdfBuffer);
-        const pdfText = pdfData.text?.trim() || "";
 
-        if (pdfText.length > 20) {
-          // Send extracted text to Claude for analysis
-          const analyzeRes = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": apiKey,
-              "anthropic-version": "2023-06-01",
-            },
-            body: JSON.stringify({
-              model: "claude-haiku-4-5-20251001",
-              max_tokens: 2000,
-              messages: [{
-                role: "user",
-                content: `Analyze this document text and return a JSON object with:
+        // Try text-based extraction
+        let pdfText = "";
+        try {
+          const pdfData = await pdfParse(pdfBuffer);
+          pdfText = pdfData.text?.trim() || "";
+        } catch { /* scanned PDF, no text */ }
+
+        // Build Claude content — use text if available, otherwise send as base64 document
+        const base64Pdf = pdfBuffer.toString("base64");
+        const claudeContent = pdfText.length > 20
+          ? `Analyze this document text and return a JSON object with:
 1. "name": A short, descriptive name for this document (e.g. "Home Depot Receipt - $849.99" or "Dishwasher Warranty - Expires 2028"). Max 60 characters.
 2. "extractedText": A clean summary of the key content.
 3. "details": An object with any key details found (store, amount, date, product, type, expiration, etc.)
@@ -107,30 +101,63 @@ Here is the document text:
 
 ${pdfText.slice(0, 3000)}
 
-Return ONLY valid JSON, no markdown or explanation.`,
-              }],
-            }),
-          });
+Return ONLY valid JSON, no markdown or explanation.`
+          : null;
 
-          if (analyzeRes.ok) {
-            const data = await analyzeRes.json();
-            const text = data.content?.[0]?.text || "";
-            try {
-              const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-              const parsed = JSON.parse(cleaned);
-              extractedText = parsed.extractedText || pdfText.slice(0, 2000);
-              smartName = parsed.name || null;
-            } catch {
-              extractedText = pdfText.slice(0, 2000);
-            }
-          } else {
-            extractedText = pdfText.slice(0, 2000);
+        // For scanned PDFs (no text), send as base64 document to Claude
+        const messages = claudeContent
+          ? [{ role: "user" as const, content: claudeContent }]
+          : [{
+              role: "user" as const,
+              content: [
+                {
+                  type: "document" as const,
+                  source: { type: "base64" as const, media_type: "application/pdf" as const, data: base64Pdf },
+                },
+                {
+                  type: "text" as const,
+                  text: `Analyze this PDF document. Return a JSON object with:
+1. "name": A short, descriptive name for this document (e.g. "Home Depot Receipt - $849.99" or "Dishwasher Warranty - Expires 2028"). Max 60 characters.
+2. "extractedText": All readable text from the document.
+3. "details": An object with any key details found (store, amount, date, product, type, expiration, etc.)
+
+Return ONLY valid JSON, no markdown or explanation.`,
+                },
+              ],
+            }];
+
+        const analyzeRes = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 2000,
+            messages,
+          }),
+        });
+
+        if (analyzeRes.ok) {
+          const data = await analyzeRes.json();
+          const text = data.content?.[0]?.text || "";
+          try {
+            const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+            const parsed = JSON.parse(cleaned);
+            extractedText = parsed.extractedText || pdfText.slice(0, 2000) || "";
+            smartName = parsed.name || null;
+          } catch {
+            extractedText = pdfText.slice(0, 2000) || text;
           }
         } else {
-          extractedText = `PDF document. ${subject ? `Subject: ${subject}` : ""}`;
+          const errText = await analyzeRes.text();
+          console.error("Claude PDF analysis error:", analyzeRes.status, errText);
+          extractedText = pdfText.slice(0, 2000) || `PDF document. ${subject ? `Subject: ${subject}` : ""}`;
         }
       } catch (pdfErr) {
-        console.error("PDF parse error:", pdfErr);
+        console.error("PDF processing error:", pdfErr);
         extractedText = `PDF document. ${subject ? `Subject: ${subject}` : ""}`;
       }
     }
