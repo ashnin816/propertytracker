@@ -49,7 +49,7 @@ export async function getProfile(): Promise<UserProfile | null> {
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      console.error("Auth error:", userError);
+      // No session = not logged in, not an error
       return null;
     }
 
