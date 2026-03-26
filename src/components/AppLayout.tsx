@@ -1107,6 +1107,22 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
             )}
           </div>
 
+          {/* Inbox icon */}
+          {authUser && (canAddProperties || canEditStructure) && (
+            <button onClick={() => { setView("inbox"); setSelectedSpaceId(null); setSidebarOpen(false); }}
+              className={`relative p-2 rounded-lg transition-colors cursor-pointer ${
+                view === "inbox" ? "text-blue-600 bg-blue-50 dark:bg-blue-900/20" : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+              title="Inbox">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
+              {inboxCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold min-w-[16px] h-4 flex items-center justify-center rounded-full px-1">{inboxCount}</span>
+              )}
+            </button>
+          )}
+
           {/* User avatar + dropdown */}
           {authUser && (
             <div className="relative flex-shrink-0" ref={userMenuRef}>
