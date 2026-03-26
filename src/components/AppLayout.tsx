@@ -197,13 +197,18 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   }, [view, spaces]);
 
   useEffect(() => {
-    getAllSpaces(mirrorOrgId, authUser?.assignments).then(setSpaces);
-    setTimeout(() => setInitialLoad(false), 300);
-
     // Set API key from environment variable
     const envKey = process.env.NEXT_PUBLIC_CLAUDE_API_KEY;
     if (envKey) setClaudeKey(envKey);
+    setTimeout(() => setInitialLoad(false), 300);
   }, []);
+
+  // Re-fetch spaces when user loads or changes (assignments affect visibility)
+  useEffect(() => {
+    if (authUser) {
+      getAllSpaces(mirrorOrgId, authUser.assignments).then(setSpaces);
+    }
+  }, [authUser?.id, authUser?.assignments?.length]);
 
   useEffect(() => {
     globalSearch(searchQuery).then(setSearchResults);
