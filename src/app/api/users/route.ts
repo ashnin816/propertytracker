@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
       name,
       role,
       org_id: orgId,
+      must_reset_password: true,
     });
 
     if (profileError) {
@@ -145,6 +146,32 @@ export async function PATCH(req: NextRequest) {
       }
       const { error } = await query;
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: true });
+    }
+
+    // Action: reset_password (user resets their own password on first login)
+    if (body.action === "reset_password") {
+      const { userId, newPassword } = body;
+      if (!userId || !newPassword || newPassword.length < 6) {
+        return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
+      }
+      const { error: authErr } = await admin.auth.admin.updateUserById(userId, { password: newPassword });
+      if (authErr) return NextResponse.json({ error: authErr.message }, { status: 500 });
+      const { error: profErr } = await admin.from("profiles").update({ must_reset_password: false }).eq("id", userId);
+      if (profErr) return NextResponse.json({ error: profErr.message }, { status: 500 });
+      return NextResponse.json({ success: true });
+    }
+
+    // Action: admin_reset_password (admin sets a temp password for a user)
+    if (body.action === "admin_reset_password") {
+      const { userId, newPassword } = body;
+      if (!userId || !newPassword || newPassword.length < 6) {
+        return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
+      }
+      const { error: authErr } = await admin.auth.admin.updateUserById(userId, { password: newPassword });
+      if (authErr) return NextResponse.json({ error: authErr.message }, { status: 500 });
+      const { error: profErr } = await admin.from("profiles").update({ must_reset_password: true }).eq("id", userId);
+      if (profErr) return NextResponse.json({ error: profErr.message }, { status: 500 });
       return NextResponse.json({ success: true });
     }
 

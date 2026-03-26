@@ -14,6 +14,7 @@ export interface UserProfile {
   orgName?: string;
   avatarUrl?: string;
   status: "active" | "inactive";
+  mustResetPassword?: boolean;
   assignments?: UserAssignment[];
 }
 
@@ -106,6 +107,7 @@ export async function getProfile(): Promise<UserProfile | null> {
       orgName,
       avatarUrl: profile.avatar_url,
       status: profile.status || "active",
+      mustResetPassword: profile.must_reset_password || false,
       assignments,
     };
   } catch (err) {

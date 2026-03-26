@@ -65,6 +65,12 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [savingAssignment, setSavingAssignment] = useState<string | null>(null);
 
+  // Admin password reset
+  const [resetUser, setResetUser] = useState<TeamMember | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
+
   // Tenant-specific assignment
   const [tenantSpaceId, setTenantSpaceId] = useState<string>("");
   const [tenantUnitId, setTenantUnitId] = useState<string>("");
@@ -124,6 +130,27 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     await loadMembers();
     setDeleteUser(null);
     setDeleting(false);
+  }
+
+  async function handleAdminReset(e: React.FormEvent) {
+    e.preventDefault();
+    if (!resetUser) return;
+    setResetError("");
+    setResetting(true);
+    try {
+      const res = await fetch("/api/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "admin_reset_password", userId: resetUser.id, newPassword: resetPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setResetUser(null);
+      setResetPassword("");
+    } catch (err: unknown) {
+      setResetError((err as Error).message);
+    }
+    setResetting(false);
   }
 
   async function fetchUnitsForSpace(spaceId: string): Promise<Unit[]> {
@@ -392,6 +419,15 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                           </button>
                         )}
                         {canManage && (
+                          <button onClick={() => { setResetUser(m); setResetPassword(""); setResetError(""); }}
+                            title="Reset password"
+                            className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                            </svg>
+                          </button>
+                        )}
+                        {canManage && (
                           <button onClick={() => setDeleteUser(m)} title="Delete"
                             className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -588,6 +624,39 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                 {deleting ? "Deleting..." : "Delete Permanently"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {resetUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setResetUser(null)}>
+          <div className="bg-white dark:bg-[#1a2332] rounded-2xl w-full max-w-sm animate-scale-in overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 pt-6 pb-4">
+              <h3 className="text-lg font-bold dark:text-white mb-1">Reset Password</h3>
+              <p className="text-sm text-gray-400">Set a new temporary password for {resetUser.name}. They will be required to change it on next login.</p>
+            </div>
+            <form onSubmit={handleAdminReset} className="px-6 pb-6">
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">New Temporary Password</label>
+                <input type="text" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)}
+                  required autoFocus placeholder="Min 6 characters" minLength={6}
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-[#0c1222] dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              {resetError && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-xl text-xs text-red-600 dark:text-red-400">{resetError}</div>
+              )}
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setResetUser(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#0c1222] active:scale-[0.98] transition-all font-medium text-sm cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" disabled={resetting || resetPassword.length < 6}
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium text-sm cursor-pointer">
+                  {resetting ? "Resetting..." : "Reset Password"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
