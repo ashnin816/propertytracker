@@ -22,6 +22,25 @@ export interface Item {
   createdAt: string;
 }
 
+export interface InboxDocument {
+  id: string;
+  orgId: string;
+  senderEmail: string;
+  senderName: string | null;
+  subject: string | null;
+  fileName: string;
+  fileUrl: string;
+  fileType: string;
+  extractedText: string | null;
+  suggestedSpaceId: string | null;
+  suggestedItemId: string | null;
+  suggestedMatchReason: string | null;
+  suggestedSpaceName?: string;
+  suggestedItemName?: string;
+  status: "pending" | "assigned" | "dismissed";
+  createdAt: string;
+}
+
 export interface Document {
   id: string;
   itemId: string;

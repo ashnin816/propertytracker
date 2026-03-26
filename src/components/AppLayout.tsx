@@ -12,7 +12,7 @@ import {
   getDocumentCountForItem,
   getDocumentCountsForItems,
   globalSearch, SearchResult, getRecentActivity, getAllDocumentsWithContext,
-  getDocument,
+  getDocument, getInboxCount,
 } from "@/lib/supabase-storage";
 import { getSpaceIcon, getSpaceColors, getItemPreset, getCategoryColors, getPresetsForSpaceType, hasUnits } from "@/lib/presets";
 import { getCustomIcon } from "@/lib/icons";
@@ -38,10 +38,11 @@ import ItemPicker from "./ItemPicker";
 import AskAI from "./AskAI";
 import { useAuth } from "./AuthProvider";
 import TeamPanel from "./TeamPanel";
+import InboxPanel from "./InboxPanel";
 import RenameModal from "./RenameModal";
 import BulkUnitsModal from "./BulkUnitsModal";
 
-type View = "home" | "space" | "units" | "unit" | "item" | "team";
+type View = "home" | "space" | "units" | "unit" | "item" | "team" | "inbox";
 
 interface AppLayoutProps {
   mirrorOrgId?: string;
@@ -91,6 +92,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   const [showAskAI, setShowAskAI] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [uploadCount, setUploadCount] = useState({ current: 0, total: 0 });
+  const [inboxCount, setInboxCount] = useState(0);
 
   // State for modal context data (replaces inline sync calls in JSX)
   const [contextDeleteSpaceData, setContextDeleteSpaceData] = useState<{ space: Space; itemCount: number } | null>(null);
@@ -212,6 +214,15 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   useEffect(() => {
     if (authUser) {
       getAllSpaces(mirrorOrgId, authUser.assignments).then(setSpaces);
+      // Load inbox count for admins/managers
+      if (authUser.orgId && (canAddProperties || canEditStructure)) {
+        getInboxCount(authUser.orgId).then(setInboxCount);
+        // Poll every 60 seconds
+        const interval = setInterval(() => {
+          if (authUser.orgId) getInboxCount(authUser.orgId).then(setInboxCount);
+        }, 60000);
+        return () => clearInterval(interval);
+      }
     }
   }, [authUser?.id, authUser?.assignments?.length]);
 
@@ -987,6 +998,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
             <div className="min-w-0">
               {view === "home" && <h1 className="text-base font-semibold dark:text-white">Dashboard</h1>}
               {view === "team" && <h1 className="text-base font-semibold dark:text-white">Team</h1>}
+              {view === "inbox" && <h1 className="text-base font-semibold dark:text-white">Inbox</h1>}
               {(view === "space" || view === "units") && selectedSpace && spaceIcon && (
                 <div className="flex items-center gap-2.5">
                   <span className="text-xl flex-shrink-0">{spaceIcon.emoji}</span>
@@ -1133,6 +1145,20 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                           </svg>
                           <span className="text-sm dark:text-gray-200">Team</span>
+                        </button>
+                      )}
+                      {(canAddProperties || canEditStructure) && (
+                        <button onClick={() => { setView("inbox"); setSelectedSpaceId(null); setSidebarOpen(false); setShowUserMenu(false); }}
+                          className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                          <div className="flex items-center gap-3">
+                            <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                            </svg>
+                            <span className="text-sm dark:text-gray-200">Inbox</span>
+                          </div>
+                          {inboxCount > 0 && (
+                            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{inboxCount}</span>
+                          )}
                         </button>
                       )}
                     </div>
@@ -1284,6 +1310,13 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
           {/* TEAM VIEW */}
           {view === "team" && (
             <TeamPanel spaces={spaces} />
+          )}
+
+          {/* INBOX VIEW */}
+          {view === "inbox" && (
+            <InboxPanel spaces={spaces} onAssigned={() => {
+              if (authUser?.orgId) getInboxCount(authUser.orgId).then(setInboxCount);
+            }} />
           )}
 
           {/* SPACE VIEW */}

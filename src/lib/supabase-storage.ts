@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { Space, Unit, Item, Document } from "./types";
+import { Space, Unit, Item, Document, InboxDocument } from "./types";
 import { UserAssignment } from "./auth";
 
 // Helper to convert Supabase snake_case to our camelCase
@@ -348,4 +348,71 @@ export async function getRecentActivity(limit = 8, assignments?: UserAssignment[
   }
 
   return activity.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, limit);
+}
+
+// --- Inbox ---
+function toInboxDocument(row: Record<string, unknown>): InboxDocument {
+  const space = row.spaces as Record<string, unknown> | null;
+  const item = row.items as Record<string, unknown> | null;
+  return {
+    id: row.id as string,
+    orgId: row.org_id as string,
+    senderEmail: row.sender_email as string,
+    senderName: row.sender_name as string | null,
+    subject: row.subject as string | null,
+    fileName: row.file_name as string,
+    fileUrl: row.file_url as string,
+    fileType: row.file_type as string,
+    extractedText: row.extracted_text as string | null,
+    suggestedSpaceId: row.suggested_space_id as string | null,
+    suggestedItemId: row.suggested_item_id as string | null,
+    suggestedMatchReason: row.suggested_match_reason as string | null,
+    suggestedSpaceName: space?.name as string | undefined,
+    suggestedItemName: item?.name as string | undefined,
+    status: row.status as InboxDocument["status"],
+    createdAt: row.created_at as string,
+  };
+}
+
+export async function getInboxDocuments(orgId: string): Promise<InboxDocument[]> {
+  const { data } = await supabase.from("inbox_documents")
+    .select("*, spaces(name), items(name)")
+    .eq("org_id", orgId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+  return (data || []).map((r) => toInboxDocument(r as Record<string, unknown>));
+}
+
+export async function getInboxCount(orgId: string): Promise<number> {
+  const { count } = await supabase.from("inbox_documents")
+    .select("id", { count: "exact", head: true })
+    .eq("org_id", orgId)
+    .eq("status", "pending");
+  return count || 0;
+}
+
+export async function assignInboxDocument(inboxDocId: string, itemId: string): Promise<void> {
+  const admin = supabase;
+  // Get the inbox document
+  const { data: inbox } = await admin.from("inbox_documents").select("*").eq("id", inboxDocId).single();
+  if (!inbox) return;
+
+  // Insert into documents table
+  const { data: doc } = await admin.from("documents").insert({
+    item_id: itemId,
+    name: inbox.file_name,
+    file_url: inbox.file_url,
+    file_type: inbox.file_type,
+    extracted_text: inbox.extracted_text || null,
+    ocr_status: inbox.extracted_text ? "done" : "pending",
+  }).select().single();
+
+  if (doc) {
+    // Mark inbox document as assigned
+    await admin.from("inbox_documents").update({ status: "assigned" }).eq("id", inboxDocId);
+  }
+}
+
+export async function dismissInboxDocument(id: string): Promise<void> {
+  await supabase.from("inbox_documents").update({ status: "dismissed" }).eq("id", id);
 }
