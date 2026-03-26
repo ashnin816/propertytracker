@@ -224,82 +224,91 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
         </div>
 
         {/* Table */}
-        <div className="bg-white dark:bg-[#1a2332] rounded-xl border border-gray-200/60 dark:border-gray-800 overflow-hidden">
-          {/* Table header */}
-          <div className="grid grid-cols-[1fr_1fr_auto_auto_auto] sm:grid-cols-[1fr_1.2fr_90px_80px_auto] items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-white/[0.02]">
-            <button onClick={() => handleSort("name")} className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-              Name <SortIcon col="name" />
-            </button>
-            <button onClick={() => handleSort("email")} className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-              Email <SortIcon col="email" />
-            </button>
-            <button onClick={() => handleSort("role")} className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-              Role <SortIcon col="role" />
-            </button>
-            <button onClick={() => handleSort("status")} className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-              Status <SortIcon col="status" />
-            </button>
-            <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">
-              Actions
-            </div>
-          </div>
-
-          {/* Table rows */}
-          {filtered.length === 0 ? (
-            <div className="px-4 py-12 text-center">
-              <p className="text-sm text-gray-400">No members found</p>
-            </div>
-          ) : (
-            <div>
-              {filtered.map((m) => {
+        <div className="bg-white dark:bg-[#1a2332] rounded-xl border border-gray-200/60 dark:border-gray-800 overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-white/[0.02]">
+                <th className="text-left px-4 py-3">
+                  <button onClick={() => handleSort("name")} className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                    Name <SortIcon col="name" />
+                  </button>
+                </th>
+                <th className="text-left px-4 py-3 hidden sm:table-cell">
+                  <button onClick={() => handleSort("email")} className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                    Email <SortIcon col="email" />
+                  </button>
+                </th>
+                <th className="text-left px-4 py-3">
+                  <button onClick={() => handleSort("role")} className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                    Role <SortIcon col="role" />
+                  </button>
+                </th>
+                <th className="text-left px-4 py-3 hidden sm:table-cell">
+                  <button onClick={() => handleSort("status")} className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                    Status <SortIcon col="status" />
+                  </button>
+                </th>
+                <th className="text-right px-4 py-3">
+                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={5} className="px-4 py-12 text-center text-sm text-gray-400">No members found</td></tr>
+              ) : filtered.map((m) => {
                 const isCurrentUser = m.id === user?.id;
                 const isInactive = m.status === "inactive";
                 const canManage = !isCurrentUser && m.role !== "org_admin";
                 const canAssign = canManage;
                 const isExpanded = expandedMember === m.id;
-                return (
-                  <div key={m.id} className={isInactive ? "opacity-60" : ""}>
-                    <div className={`grid grid-cols-[1fr_1fr_auto_auto_auto] sm:grid-cols-[1fr_1.2fr_90px_80px_auto] items-center gap-2 px-4 py-3 border-b border-gray-50 dark:border-gray-800/50 last:border-b-0 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors ${canAssign ? "cursor-pointer" : ""}`}
-                      onClick={() => canAssign && handleExpandMember(m.id)}>
-                      {/* Name */}
-                      <div className="flex items-center gap-2 min-w-0">
-                        <p className="text-sm font-medium dark:text-white truncate">{m.name}</p>
+                return [
+                  <tr key={m.id}
+                    onClick={() => canAssign && handleExpandMember(m.id)}
+                    className={`border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors ${canAssign ? "cursor-pointer" : ""} ${isInactive ? "opacity-60" : ""}`}>
+                    {/* Name */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium dark:text-white truncate">{m.name}</span>
                         {isCurrentUser && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">You</span>
                         )}
                       </div>
-
-                      {/* Email */}
-                      <p className="hidden sm:block text-sm text-gray-500 dark:text-gray-400 truncate">{m.email}</p>
-
-                      {/* Role */}
-                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md w-fit ${ROLE_COLORS[m.role] || "bg-gray-100 text-gray-600"}`}>
+                    </td>
+                    {/* Email */}
+                    <td className="px-4 py-3 hidden sm:table-cell">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">{m.email}</span>
+                    </td>
+                    {/* Role */}
+                    <td className="px-4 py-3">
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md ${ROLE_COLORS[m.role] || "bg-gray-100 text-gray-600"}`}>
                         {ROLE_LABELS[m.role] || m.role}
                       </span>
-
-                      {/* Status */}
-                      <div className="hidden sm:flex items-center gap-1.5">
+                    </td>
+                    {/* Status */}
+                    <td className="px-4 py-3 hidden sm:table-cell">
+                      <div className="flex items-center gap-1.5">
                         <div className={`w-1.5 h-1.5 rounded-full ${isInactive ? "bg-red-400" : "bg-emerald-400"}`} />
                         <span className="text-xs text-gray-500 dark:text-gray-400">{isInactive ? "Inactive" : "Active"}</span>
                       </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center justify-end gap-3 flex-nowrap" onClick={(e) => e.stopPropagation()}>
+                    </td>
+                    {/* Actions */}
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-3 whitespace-nowrap">
                         {canAssign && (
-                          <button onClick={() => handleExpandMember(m.id)} className={`flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                          <button onClick={() => handleExpandMember(m.id)} className={`flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md transition-colors cursor-pointer ${
                             isExpanded ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20" : "text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                           }`}>
-                            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                             </svg>
                             Access
                           </button>
                         )}
                         {canManage && (
-                          <button
-                            onClick={() => handleToggleStatus(m)}
+                          <button onClick={() => handleToggleStatus(m)}
                             disabled={togglingStatus === m.id}
-                            className={`text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                            className={`text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer ${
                               togglingStatus === m.id ? "opacity-50" : ""
                             } ${isInactive
                               ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
@@ -309,20 +318,19 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                           </button>
                         )}
                         {canManage && (
-                          <button onClick={() => setDeleteUser(m)}
-                            title="Delete"
-                            className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer flex-shrink-0">
+                          <button onClick={() => setDeleteUser(m)} title="Delete"
+                            className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                           </button>
                         )}
                       </div>
-                    </div>
-
-                    {/* Expanded: Property assignments */}
-                    {isExpanded && (
-                      <div className="px-4 pb-3 pt-1 bg-gray-50/50 dark:bg-white/[0.02] border-b border-gray-100 dark:border-gray-800">
+                    </td>
+                  </tr>,
+                  isExpanded && (
+                    <tr key={`${m.id}-expand`} className="bg-gray-50/50 dark:bg-white/[0.02] border-b border-gray-100 dark:border-gray-800">
+                      <td colSpan={5} className="px-4 pb-3 pt-2">
                         <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Property Access</p>
                         {loadingAssignments ? (
                           <div className="flex items-center gap-2 py-1">
@@ -359,13 +367,13 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                         {!loadingAssignments && Object.values(memberAssignments).filter(Boolean).length === 0 && spaces.length > 0 && (
                           <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-2">No properties assigned — this user won&apos;t see any data</p>
                         )}
-                      </div>
-                    )}
-                  </div>
-                );
+                      </td>
+                    </tr>
+                  ),
+                ];
               })}
-            </div>
-          )}
+            </tbody>
+          </table>
         </div>
       </div>
 
