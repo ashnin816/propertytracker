@@ -165,12 +165,49 @@ export async function POST(req: NextRequest) {
 
 // PATCH — update user (status toggle, assignments, password reset)
 export async function PATCH(req: NextRequest) {
-  const caller = await getCallerProfile(req);
-  if (!caller) return unauthorized();
-
   try {
     const body = await req.json();
     const admin = getAdminClient();
+
+    // validate_setup_token is public — user isn't logged in yet
+    if (body.action === "validate_setup_token") {
+      const { token, newPassword } = body;
+      if (!token || !newPassword || newPassword.length < 6) {
+        return NextResponse.json({ error: "Token and password (min 6 chars) required" }, { status: 400 });
+      }
+
+      const { data: profile, error: findErr } = await admin.from("profiles")
+        .select("id, email, name, setup_token_expires")
+        .eq("setup_token", token)
+        .single();
+
+      if (findErr || !profile) {
+        return NextResponse.json({ error: "Invalid or expired link" }, { status: 400 });
+      }
+
+      if (profile.setup_token_expires && new Date(profile.setup_token_expires) < new Date()) {
+        return NextResponse.json({ error: "This link has expired. Ask your admin to send a new one." }, { status: 400 });
+      }
+
+      const { error: authErr } = await admin.auth.admin.updateUserById(profile.id, {
+        password: newPassword,
+        ban_duration: "none",
+      });
+      if (authErr) return NextResponse.json({ error: authErr.message }, { status: 500 });
+
+      const { error: updateErr } = await admin.from("profiles").update({
+        must_reset_password: false,
+        setup_token: null,
+        setup_token_expires: null,
+      }).eq("id", profile.id);
+      if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
+
+      return NextResponse.json({ success: true, email: profile.email });
+    }
+
+    // All other actions require auth
+    const caller = await getCallerProfile(req);
+    if (!caller) return unauthorized();
 
     // Action: toggle_status — admin only
     if (body.action === "toggle_status" || body.status) {
@@ -292,42 +329,6 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // Action: validate_setup_token — public, validates token and sets password
-    if (body.action === "validate_setup_token") {
-      const { token, newPassword } = body;
-      if (!token || !newPassword || newPassword.length < 6) {
-        return NextResponse.json({ error: "Token and password (min 6 chars) required" }, { status: 400 });
-      }
-
-      const { data: profile, error: findErr } = await admin.from("profiles")
-        .select("id, email, name, setup_token_expires")
-        .eq("setup_token", token)
-        .single();
-
-      if (findErr || !profile) {
-        return NextResponse.json({ error: "Invalid or expired link" }, { status: 400 });
-      }
-
-      if (profile.setup_token_expires && new Date(profile.setup_token_expires) < new Date()) {
-        return NextResponse.json({ error: "This link has expired. Ask your admin to send a new one." }, { status: 400 });
-      }
-
-      // Set the password and clear the token
-      const { error: authErr } = await admin.auth.admin.updateUserById(profile.id, {
-        password: newPassword,
-        ban_duration: "none",
-      });
-      if (authErr) return NextResponse.json({ error: authErr.message }, { status: 500 });
-
-      const { error: updateErr } = await admin.from("profiles").update({
-        must_reset_password: false,
-        setup_token: null,
-        setup_token_expires: null,
-      }).eq("id", profile.id);
-      if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
-
-      return NextResponse.json({ success: true, email: profile.email });
-    }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (err) {
