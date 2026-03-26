@@ -17,10 +17,11 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
 
     const from = formData.get("from") as string;
+    const to = formData.get("to") as string;
     const subject = formData.get("subject") as string;
     const numAttachments = parseInt(formData.get("attachments") as string || "0", 10);
 
-    console.log("Inbound email from:", from, "subject:", subject, "attachments:", numAttachments);
+    console.log("Inbound email from:", from, "to:", to, "subject:", subject, "attachments:", numAttachments);
 
     if (!from) {
       return NextResponse.json({ error: "No sender" }, { status: 400 });
@@ -37,22 +38,37 @@ export async function POST(req: NextRequest) {
     const senderEmail = (emailMatch[1] || from).trim().toLowerCase();
     const senderName = from.replace(/<.+?>/, "").trim().replace(/^["']|["']$/g, "") || null;
 
-    // Look up sender's org
-    const { data: profile } = await admin.from("profiles")
-      .select("org_id, status")
-      .eq("email", senderEmail)
-      .single();
+    // Route by "to" address — extract slug from {slug}@inbound.propertytrackerplus.com
+    const toEmail = to ? (to.match(/<(.+?)>/) || [null, to])[1]?.trim().toLowerCase() || to.trim().toLowerCase() : "";
+    const toSlug = toEmail.split("@")[0];
 
-    if (!profile || !profile.org_id) {
-      console.log("Unknown sender:", senderEmail);
-      return NextResponse.json({ error: "Unknown sender" }, { status: 403 });
+    let orgId: string | null = null;
+
+    if (toSlug) {
+      // Look up org by slug
+      const { data: org } = await admin.from("organizations")
+        .select("id")
+        .eq("slug", toSlug)
+        .single();
+      if (org) orgId = org.id;
     }
 
-    if (profile.status === "inactive") {
-      return NextResponse.json({ error: "Account deactivated" }, { status: 403 });
+    // Fallback: look up org by sender email (for backwards compatibility)
+    if (!orgId) {
+      const { data: profile } = await admin.from("profiles")
+        .select("org_id, status")
+        .eq("email", senderEmail)
+        .single();
+      if (profile?.status === "inactive") {
+        return NextResponse.json({ error: "Account deactivated" }, { status: 403 });
+      }
+      orgId = profile?.org_id || null;
     }
 
-    const orgId = profile.org_id;
+    if (!orgId) {
+      console.log("No org found for to:", toEmail, "from:", senderEmail);
+      return NextResponse.json({ error: "Unknown recipient" }, { status: 403 });
+    }
     let processed = 0;
 
     // SendGrid sends attachments as attachment1, attachment2, etc.

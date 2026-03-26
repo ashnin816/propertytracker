@@ -12,6 +12,7 @@ export interface UserProfile {
   role: "super_admin" | "org_admin" | "manager" | "technician" | "tenant";
   orgId: string | null;
   orgName?: string;
+  orgSlug?: string;
   avatarUrl?: string;
   status: "active" | "inactive";
   mustResetPassword?: boolean;
@@ -66,14 +67,16 @@ export async function getProfile(): Promise<UserProfile | null> {
 
     if (!profile) return null;
 
-    // Get org name separately if org_id exists
+    // Get org name and slug separately if org_id exists
     let orgName: string | undefined;
+    let orgSlug: string | undefined;
     if (profile.org_id) {
       const { data: org } = await supabase.from("organizations")
-        .select("name")
+        .select("name, slug")
         .eq("id", profile.org_id)
         .single();
       orgName = org?.name;
+      orgSlug = org?.slug;
     }
 
     // Fetch assignments for non-admin roles (via API to bypass RLS)
@@ -105,6 +108,7 @@ export async function getProfile(): Promise<UserProfile | null> {
       role,
       orgId: profile.org_id,
       orgName,
+      orgSlug,
       avatarUrl: profile.avatar_url,
       status: profile.status || "active",
       mustResetPassword: profile.must_reset_password || false,
