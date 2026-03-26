@@ -113,6 +113,16 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json(data);
     }
 
+    // Action: get_units
+    if (body.action === "get_units") {
+      const { data, error } = await admin.from("units")
+        .select("id, name, space_id")
+        .eq("space_id", body.spaceId)
+        .order("name");
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(data);
+    }
+
     // Action: assign
     if (body.action === "assign") {
       const { userId, spaceId, unitId } = body;

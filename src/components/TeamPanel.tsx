@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "./AuthProvider";
 import { Space, Unit } from "@/lib/types";
-import { getUnitsForSpace } from "@/lib/supabase-storage";
 
 interface TeamMember {
   id: string;
@@ -127,6 +126,16 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     setDeleting(false);
   }
 
+  async function fetchUnitsForSpace(spaceId: string): Promise<Unit[]> {
+    const res = await fetch("/api/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "get_units", spaceId }),
+    });
+    const data = await res.json();
+    return Array.isArray(data) ? data.map((u: Record<string, string>) => ({ id: u.id, spaceId: u.space_id, name: u.name, createdAt: "" })) : [];
+  }
+
   async function handleExpandMember(memberId: string) {
     if (expandedMember === memberId) { setExpandedMember(null); return; }
     const member = members.find((m) => m.id === memberId);
@@ -148,7 +157,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
       setTenantUnitId(unId);
       setTenantUnits([]);
       if (spId) {
-        const units = await getUnitsForSpace(spId);
+        const units = await fetchUnitsForSpace(spId);
         setTenantUnits(units);
       }
     } else {
@@ -177,7 +186,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     setTenantUnits([]);
     if (spaceId) {
       setLoadingUnits(true);
-      const units = await getUnitsForSpace(spaceId);
+      const units = await fetchUnitsForSpace(spaceId);
       setTenantUnits(units);
       setLoadingUnits(false);
     }
