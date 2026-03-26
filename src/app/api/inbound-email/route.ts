@@ -66,9 +66,28 @@ export async function POST(req: NextRequest) {
       // Skip files over 20MB
       if (file.size > 20 * 1024 * 1024) continue;
 
-      // Skip inline images (signatures, logos) — small images with generic names
-      const isLikelyInline = contentType.startsWith("image/") && file.size < 50000 &&
-        (filename.startsWith("image") || filename.includes("logo") || filename.includes("signature"));
+      // Skip inline images (signatures, logos, tracking pixels)
+      const lowerName = filename.toLowerCase();
+      const isLikelyInline =
+        // Small images with generic/auto-generated names
+        (contentType.startsWith("image/") && file.size < 100000 && (
+          lowerName.startsWith("image") ||
+          lowerName.startsWith("img-") ||
+          lowerName.startsWith("img_") ||
+          lowerName.includes("logo") ||
+          lowerName.includes("signature") ||
+          lowerName.includes("banner") ||
+          lowerName.includes("icon") ||
+          !lowerName.includes(".")  // no file extension = likely inline
+        )) ||
+        // Tracking pixels
+        (contentType.startsWith("image/") && file.size < 5000) ||
+        // Generic octet-stream with image-like auto-generated names
+        (contentType === "application/octet-stream" && file.size < 100000 && (
+          lowerName.startsWith("img-") ||
+          lowerName.startsWith("img_") ||
+          lowerName.startsWith("image")
+        ));
       if (isLikelyInline) continue;
 
       const fileBuffer = Buffer.from(await file.arrayBuffer());
