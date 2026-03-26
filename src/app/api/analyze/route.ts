@@ -4,10 +4,11 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
-    const { imageData, mimeType, apiKey } = await req.json();
+    const { imageData, mimeType } = await req.json();
 
+    const apiKey = process.env.CLAUDE_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: "No API key provided" }, { status: 400 });
+      return NextResponse.json({ error: "Claude API key not configured" }, { status: 500 });
     }
 
     const isImage = mimeType?.startsWith("image/");

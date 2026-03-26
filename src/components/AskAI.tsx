@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect, ReactNode } from "react";
-import { getApiKey } from "@/lib/claude";
 import { getDocument } from "@/lib/supabase-storage";
 import { Document } from "@/lib/types";
 import DocumentPreview from "./DocumentPreview";
@@ -51,7 +50,7 @@ export default function AskAI({ documents, onClose, onNavigateToItem }: AskAIPro
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, documents, apiKey: getApiKey() }),
+        body: JSON.stringify({ question, documents }),
       });
 
       const data = await response.json();

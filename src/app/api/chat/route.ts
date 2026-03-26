@@ -4,10 +4,11 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
-    const { question, documents, apiKey } = await req.json();
+    const { question, documents } = await req.json();
 
+    const apiKey = process.env.CLAUDE_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: "No API key" }, { status: 400 });
+      return NextResponse.json({ error: "Claude API key not configured" }, { status: 500 });
     }
 
     // Build context from documents

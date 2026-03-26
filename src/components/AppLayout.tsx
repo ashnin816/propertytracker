@@ -22,7 +22,7 @@ import { extractText, extractSmartPages, isExtractable } from "@/lib/ocr";
 import { loadDemoData } from "@/lib/demo";
 import { generateDocumentName } from "@/lib/docname";
 import { parseDocDetails } from "@/lib/docdetails";
-import { analyzeDocument, hasApiKey, setApiKey as setClaudeKey } from "@/lib/claude";
+import { analyzeDocument } from "@/lib/claude";
 import { useToast } from "./Toast";
 import { useTheme } from "./ThemeProvider";
 import AddSpaceModal from "./AddSpaceModal";
@@ -204,9 +204,6 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   }, [view, spaces]);
 
   useEffect(() => {
-    // Set API key from environment variable
-    const envKey = process.env.NEXT_PUBLIC_CLAUDE_API_KEY;
-    if (envKey) setClaudeKey(envKey);
     setTimeout(() => setInitialLoad(false), 300);
   }, []);
 
@@ -541,7 +538,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
         const canExtract = isExtractable(file.type);
 
         if (canExtract) {
-          setAnalyzeModal({ visible: true, fileName: file.name, isImage: file.type.startsWith("image/"), stage: "uploading", extractedText: null, suggestedName: null, docId: null, engine: hasApiKey() ? "claude" : "ocr" });
+          setAnalyzeModal({ visible: true, fileName: file.name, isImage: file.type.startsWith("image/"), stage: "uploading", extractedText: null, suggestedName: null, docId: null, engine: "claude" });
         }
 
         const data = isImageDataUrl(raw) ? await compressImage(raw) : raw;
@@ -559,7 +556,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
         setDocuments(await getDocumentsForItem(itemId));
 
         try {
-          if (hasApiKey() && file.type.startsWith("image/")) {
+          if (file.type.startsWith("image/")) {
             await new Promise((r) => setTimeout(r, 300));
             setAnalyzeModal((prev) => ({ ...prev, stage: "extracting" }));
             const result = await analyzeDocument(data, file.type);
@@ -568,7 +565,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
             await updateDocument(doc.id, { extractedText: result.extractedText || undefined, ocrStatus: "done" });
             setDocuments(await getDocumentsForItem(itemId));
             setAnalyzeModal((prev) => ({ ...prev, stage: "done", suggestedName: result.name }));
-          } else if (hasApiKey() && file.type === "application/pdf") {
+          } else if (file.type === "application/pdf") {
             await new Promise((r) => setTimeout(r, 300));
             setAnalyzeModal((prev) => ({ ...prev, stage: "extracting" }));
 
