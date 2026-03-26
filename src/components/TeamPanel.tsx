@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "./AuthProvider";
 import { Space, Unit } from "@/lib/types";
+import { authFetch } from "@/lib/supabase";
 
 interface TeamMember {
   id: string;
@@ -101,7 +102,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     setError("");
     setCreating(true);
     try {
-      const res = await fetch("/api/users", {
+      const res = await authFetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, name, role, orgId: user?.orgId }),
@@ -120,7 +121,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
   async function handleToggleStatus(member: TeamMember) {
     setTogglingStatus(member.id);
     const newStatus = member.status === "active" ? "inactive" : "active";
-    await fetch("/api/users", {
+    await authFetch("/api/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: member.id, status: newStatus }),
@@ -144,7 +145,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     setResetError("");
     setResetting(true);
     try {
-      const res = await fetch("/api/users", {
+      const res = await authFetch("/api/users", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "admin_reset_password", userId: resetUser.id, newPassword: resetPassword }),
@@ -160,7 +161,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
   }
 
   async function fetchUnitsForSpace(spaceId: string): Promise<Unit[]> {
-    const res = await fetch("/api/users", {
+    const res = await authFetch("/api/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "get_units", spaceId }),
@@ -174,7 +175,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     const member = members.find((m) => m.id === memberId);
     setExpandedMember(memberId);
     setLoadingAssignments(true);
-    const res = await fetch("/api/users", {
+    const res = await authFetch("/api/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "get_assignments", userId: memberId }),
@@ -204,7 +205,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
 
   async function handleToggleAssignment(memberId: string, spaceId: string, assigned: boolean) {
     setSavingAssignment(spaceId);
-    await fetch("/api/users", {
+    await authFetch("/api/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: assigned ? "unassign" : "assign", userId: memberId, spaceId }),
@@ -229,7 +230,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     if (!tenantSpaceId || !tenantUnitId) return;
     setSavingTenant(true);
     // Remove any existing assignments first
-    const res = await fetch("/api/users", {
+    const res = await authFetch("/api/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "get_assignments", userId: memberId }),
@@ -237,7 +238,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     const existing = await res.json();
     if (Array.isArray(existing)) {
       for (const a of existing) {
-        await fetch("/api/users", {
+        await authFetch("/api/users", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "unassign", userId: memberId, spaceId: a.space_id, unitId: a.unit_id }),
@@ -245,7 +246,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
       }
     }
     // Assign new
-    await fetch("/api/users", {
+    await authFetch("/api/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "assign", userId: memberId, spaceId: tenantSpaceId, unitId: tenantUnitId }),

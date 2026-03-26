@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { UserProfile } from "@/lib/auth";
+import { authFetch } from "@/lib/supabase";
 
 interface ResetPasswordPageProps {
   user: UserProfile;
@@ -29,7 +30,7 @@ export default function ResetPasswordPage({ user, onComplete }: ResetPasswordPag
 
     setSaving(true);
     try {
-      const res = await fetch("/api/users", {
+      const res = await authFetch("/api/users", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reset_password", userId: user.id, newPassword: password }),

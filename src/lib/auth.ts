@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { supabase, authFetch } from "./supabase";
 
 export interface UserAssignment {
   spaceId: string;
@@ -81,7 +81,7 @@ export async function getProfile(): Promise<UserProfile | null> {
     const role = profile.role as UserProfile["role"];
     if (role !== "org_admin" && role !== "super_admin") {
       try {
-        const res = await fetch("/api/users", {
+        const res = await authFetch("/api/users", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "get_assignments", userId: user.id }),
