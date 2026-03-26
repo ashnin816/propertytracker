@@ -55,6 +55,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [view, setView] = useState<View>("home");
+  const [sidebarFilter, setSidebarFilter] = useState("");
   const [units, setUnits] = useState<Unit[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -858,6 +859,20 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                 </button>
               )}
             </div>
+            {spaces.length >= 8 && (
+              <div className="relative mt-1.5">
+                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  value={sidebarFilter}
+                  onChange={(e) => setSidebarFilter(e.target.value)}
+                  placeholder="Filter properties..."
+                  className="w-full pl-8 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs focus:outline-none focus:bg-white dark:focus:bg-[#1a2332] focus:ring-1 focus:ring-blue-500 border border-transparent focus:border-blue-500 transition-all dark:text-gray-200"
+                />
+              </div>
+            )}
           </div>
           {spaces.length === 0 ? (
             <div className="px-4 py-8 text-center">
@@ -875,7 +890,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
             </div>
           ) : (
             <div className="space-y-0.5 px-2">
-              {spaces.map((space) => {
+              {spaces.filter((s) => !sidebarFilter || s.name.toLowerCase().includes(sidebarFilter.toLowerCase())).map((space) => {
                 const icon = getSpaceIcon(space.icon);
                 const colors = getSpaceColors(space.icon);
                 const isActive = selectedSpaceId === space.id;
