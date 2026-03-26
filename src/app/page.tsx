@@ -5,13 +5,10 @@ import { useAuth } from "@/components/AuthProvider";
 import LoginPage from "@/components/LoginPage";
 import SuperAdminPanel from "@/components/SuperAdminPanel";
 import AppLayout from "@/components/AppLayout";
-import ResetPasswordPage from "@/components/ResetPasswordPage";
-import { getProfile } from "@/lib/auth";
 
 export default function Home() {
   const { user, loading } = useAuth();
   const [viewingOrg, setViewingOrg] = useState<{ id: string; name: string } | null>(null);
-  const [passwordReset, setPasswordReset] = useState(false);
 
   if (loading) {
     return (
@@ -26,19 +23,6 @@ export default function Home() {
 
   if (!user) {
     return <LoginPage />;
-  }
-
-  // Force password reset on first login
-  if (user.mustResetPassword && !passwordReset) {
-    return <ResetPasswordPage user={user} onComplete={async () => {
-      setPasswordReset(true);
-      // Refresh the profile so mustResetPassword is cleared
-      const profile = await getProfile();
-      if (profile) {
-        // Force re-render with updated user — the AuthProvider will pick it up on next auth event
-        window.location.reload();
-      }
-    }} />;
   }
 
   // Super admin viewing a tenant

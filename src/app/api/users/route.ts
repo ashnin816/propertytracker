@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 import { sendWelcomeEmail, sendPasswordResetEmail, sendDeactivatedEmail, sendReactivatedEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
+
+function generateToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function generateRandomPassword() {
+  return crypto.randomBytes(16).toString("base64url");
+}
 
 // Server-side Supabase client with service role key (bypasses RLS)
 function getAdminClient() {
@@ -93,9 +102,9 @@ export async function POST(req: NextRequest) {
   if (!isAdmin(caller.role)) return forbidden();
 
   try {
-    const { email, password, name, role, orgId } = await req.json();
+    const { email, name, role, orgId } = await req.json();
 
-    if (!email || !password || !name || !role || !orgId) {
+    if (!email || !name || !role || !orgId) {
       return NextResponse.json({ error: "All fields required" }, { status: 400 });
     }
 
@@ -105,11 +114,14 @@ export async function POST(req: NextRequest) {
     }
 
     const admin = getAdminClient();
+    const randomPassword = generateRandomPassword();
+    const setupToken = generateToken();
+    const tokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
 
-    // 1. Create auth user
+    // 1. Create auth user with random password (user will set their own via setup link)
     const { data: authData, error: authError } = await admin.auth.admin.createUser({
       email,
-      password,
+      password: randomPassword,
       email_confirm: true,
       user_metadata: { name, role, org_id: orgId },
     });
@@ -118,7 +130,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: authError.message }, { status: 400 });
     }
 
-    // 2. Create profile
+    // 2. Create profile with setup token
     const { error: profileError } = await admin.from("profiles").upsert({
       id: authData.user.id,
       email,
@@ -126,14 +138,16 @@ export async function POST(req: NextRequest) {
       role,
       org_id: orgId,
       must_reset_password: true,
+      setup_token: setupToken,
+      setup_token_expires: tokenExpires,
     });
 
     if (profileError) {
       console.error("Profile creation error:", profileError);
     }
 
-    // Send welcome email (don't block on failure)
-    sendWelcomeEmail(email, name, password).catch((err) =>
+    // Send welcome email with setup link
+    sendWelcomeEmail(email, name, setupToken).catch((err) =>
       console.error("Welcome email failed:", err)
     );
 
@@ -248,27 +262,71 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // Action: admin_reset_password — admin only
+    // Action: admin_reset_password — admin only, sends setup link
     if (body.action === "admin_reset_password") {
       if (!isAdmin(caller.role)) return forbidden();
-      const { userId, newPassword } = body;
-      if (!userId || !newPassword || newPassword.length < 6) {
-        return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
-      }
-      const { error: authErr } = await admin.auth.admin.updateUserById(userId, { password: newPassword });
-      if (authErr) return NextResponse.json({ error: authErr.message }, { status: 500 });
-      const { error: profErr } = await admin.from("profiles").update({ must_reset_password: true }).eq("id", userId);
+      const { userId } = body;
+      if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 });
+
+      const setupToken = generateToken();
+      const tokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { error: profErr } = await admin.from("profiles").update({
+        must_reset_password: true,
+        setup_token: setupToken,
+        setup_token_expires: tokenExpires,
+      }).eq("id", userId);
       if (profErr) return NextResponse.json({ error: profErr.message }, { status: 500 });
 
-      // Send password reset email (don't block on failure)
+      // Ban user so current session is invalidated — they must use the setup link
+      await admin.auth.admin.updateUserById(userId, { ban_duration: "876000h" });
+
+      // Send password reset email with setup link
       const { data: targetProfile } = await admin.from("profiles").select("email, name").eq("id", userId).single();
       if (targetProfile) {
-        sendPasswordResetEmail(targetProfile.email, targetProfile.name, newPassword).catch((err) =>
+        sendPasswordResetEmail(targetProfile.email, targetProfile.name, setupToken).catch((err) =>
           console.error("Password reset email failed:", err)
         );
       }
 
       return NextResponse.json({ success: true });
+    }
+
+    // Action: validate_setup_token — public, validates token and sets password
+    if (body.action === "validate_setup_token") {
+      const { token, newPassword } = body;
+      if (!token || !newPassword || newPassword.length < 6) {
+        return NextResponse.json({ error: "Token and password (min 6 chars) required" }, { status: 400 });
+      }
+
+      const { data: profile, error: findErr } = await admin.from("profiles")
+        .select("id, email, name, setup_token_expires")
+        .eq("setup_token", token)
+        .single();
+
+      if (findErr || !profile) {
+        return NextResponse.json({ error: "Invalid or expired link" }, { status: 400 });
+      }
+
+      if (profile.setup_token_expires && new Date(profile.setup_token_expires) < new Date()) {
+        return NextResponse.json({ error: "This link has expired. Ask your admin to send a new one." }, { status: 400 });
+      }
+
+      // Set the password and clear the token
+      const { error: authErr } = await admin.auth.admin.updateUserById(profile.id, {
+        password: newPassword,
+        ban_duration: "none",
+      });
+      if (authErr) return NextResponse.json({ error: authErr.message }, { status: 500 });
+
+      const { error: updateErr } = await admin.from("profiles").update({
+        must_reset_password: false,
+        setup_token: null,
+        setup_token_expires: null,
+      }).eq("id", profile.id);
+      if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
+
+      return NextResponse.json({ success: true, email: profile.email });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });

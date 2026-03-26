@@ -26,44 +26,44 @@ function baseTemplate(content: string) {
 </html>`;
 }
 
-export async function sendWelcomeEmail(to: string, name: string, tempPassword: string) {
+export async function sendWelcomeEmail(to: string, name: string, setupToken: string) {
+  const setupUrl = `${APP_URL}/setup?token=${setupToken}`;
   return resend.emails.send({
     from: FROM,
     to,
-    subject: "Welcome to PropertyTracker+",
+    subject: "Welcome to PropertyTracker+ — Set up your account",
     html: baseTemplate(`
       <h2 style="color:#1a1a1a;font-size:20px;margin:0 0 8px;">Welcome, ${name}!</h2>
       <p style="color:#666;font-size:14px;line-height:1.6;margin:0 0 24px;">
-        Your account has been created. Use the credentials below to sign in. You'll be asked to set your own password on first login.
+        Your admin has created an account for you on PropertyTracker+. Click the button below to set your password and get started.
       </p>
-      <div style="background:#f8f9fa;border-radius:12px;padding:20px;margin:0 0 24px;">
-        <p style="margin:0 0 8px;color:#666;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Your login details</p>
-        <p style="margin:0 0 4px;color:#1a1a1a;font-size:14px;"><strong>Email:</strong> ${to}</p>
-        <p style="margin:0;color:#1a1a1a;font-size:14px;"><strong>Temporary Password:</strong> ${tempPassword}</p>
-      </div>
-      <a href="${APP_URL}" style="display:inline-block;background:#2563eb;color:white;text-decoration:none;padding:12px 32px;border-radius:10px;font-size:14px;font-weight:600;">
-        Sign In
+      <a href="${setupUrl}" style="display:inline-block;background:#2563eb;color:white;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:14px;font-weight:600;">
+        Set Up Your Account
       </a>
+      <p style="color:#999;font-size:12px;line-height:1.6;margin:24px 0 0;">
+        This link expires in 7 days. If it doesn't work, ask your admin to resend the invite.
+      </p>
     `),
   });
 }
 
-export async function sendPasswordResetEmail(to: string, name: string, tempPassword: string) {
+export async function sendPasswordResetEmail(to: string, name: string, setupToken: string) {
+  const setupUrl = `${APP_URL}/setup?token=${setupToken}`;
   return resend.emails.send({
     from: FROM,
     to,
-    subject: "Your password has been reset — PropertyTracker+",
+    subject: "Reset your password — PropertyTracker+",
     html: baseTemplate(`
       <h2 style="color:#1a1a1a;font-size:20px;margin:0 0 8px;">Password Reset</h2>
       <p style="color:#666;font-size:14px;line-height:1.6;margin:0 0 24px;">
-        Hi ${name}, your admin has reset your password. Use the temporary password below to sign in. You'll be asked to set a new password.
+        Hi ${name}, your admin has reset your password. Click the button below to set a new one.
       </p>
-      <div style="background:#f8f9fa;border-radius:12px;padding:20px;margin:0 0 24px;">
-        <p style="margin:0 0 4px;color:#1a1a1a;font-size:14px;"><strong>Temporary Password:</strong> ${tempPassword}</p>
-      </div>
-      <a href="${APP_URL}" style="display:inline-block;background:#2563eb;color:white;text-decoration:none;padding:12px 32px;border-radius:10px;font-size:14px;font-weight:600;">
-        Sign In
+      <a href="${setupUrl}" style="display:inline-block;background:#2563eb;color:white;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:14px;font-weight:600;">
+        Set New Password
       </a>
+      <p style="color:#999;font-size:12px;line-height:1.6;margin:24px 0 0;">
+        This link expires in 7 days. If you didn't request this, contact your admin.
+      </p>
     `),
   });
 }
@@ -95,7 +95,7 @@ export async function sendReactivatedEmail(to: string, name: string) {
       <p style="color:#666;font-size:14px;line-height:1.6;margin:0 0 24px;">
         Your PropertyTracker+ account has been reactivated. You can sign in again with your existing credentials.
       </p>
-      <a href="${APP_URL}" style="display:inline-block;background:#2563eb;color:white;text-decoration:none;padding:12px 32px;border-radius:10px;font-size:14px;font-weight:600;">
+      <a href="${APP_URL}" style="display:inline-block;background:#2563eb;color:white;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:14px;font-weight:600;">
         Sign In
       </a>
     `),
