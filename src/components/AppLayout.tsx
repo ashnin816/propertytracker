@@ -192,7 +192,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   // Load recent activity when on home view
   useEffect(() => {
     if (view === "home" && spaces.length > 0) {
-      getRecentActivity(6).then(setRecentActivity);
+      getRecentActivity(6, authUser?.assignments).then(setRecentActivity);
     }
   }, [view, spaces]);
 
@@ -211,7 +211,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   }, [authUser?.id, authUser?.assignments?.length]);
 
   useEffect(() => {
-    globalSearch(searchQuery).then(setSearchResults);
+    globalSearch(searchQuery, authUser?.assignments).then(setSearchResults);
   }, [searchQuery]);
 
   // Load context-delete data when IDs are set
@@ -906,7 +906,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
           {/* Ask PropertyTracker */}
           <button onClick={async () => {
             if (!showAskAI) {
-              const docs = await getAllDocumentsWithContext();
+              const docs = await getAllDocumentsWithContext(authUser?.assignments);
               setAskAIDocuments(docs);
             }
             setShowAskAI(!showAskAI);

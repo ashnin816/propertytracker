@@ -218,19 +218,25 @@ export interface SearchResult {
   matchContext?: string;
 }
 
-export async function globalSearch(query: string): Promise<SearchResult[]> {
+export async function globalSearch(query: string, assignments?: UserAssignment[]): Promise<SearchResult[]> {
   if (!query.trim()) return [];
+  if (assignments !== undefined && assignments.length === 0) return [];
   const q = `%${query}%`;
+  const spaceIds = assignments ? [...new Set(assignments.map((a) => a.spaceId))] : undefined;
   const results: SearchResult[] = [];
 
   // Search spaces
-  const { data: spaces } = await supabase.from("spaces").select("*").ilike("name", q).limit(3);
+  let spaceQuery = supabase.from("spaces").select("*").ilike("name", q).limit(3);
+  if (spaceIds) spaceQuery = spaceQuery.in("id", spaceIds);
+  const { data: spaces } = await spaceQuery;
   for (const s of spaces || []) {
     results.push({ type: "space", id: s.id, name: s.name, icon: s.icon });
   }
 
   // Search items
-  const { data: items } = await supabase.from("items").select("*, spaces!inner(name)").ilike("name", q).limit(3);
+  let itemQuery = supabase.from("items").select("*, spaces!inner(name)").ilike("name", q).limit(3);
+  if (spaceIds) itemQuery = itemQuery.in("space_id", spaceIds);
+  const { data: items } = await itemQuery;
   for (const i of items || []) {
     results.push({
       type: "item", id: i.id, name: i.name, spaceId: i.space_id,
@@ -240,10 +246,12 @@ export async function globalSearch(query: string): Promise<SearchResult[]> {
   }
 
   // Search documents (name and extracted text)
-  const { data: docs } = await supabase.from("documents")
+  let docQuery = supabase.from("documents")
     .select("*, items!inner(name, space_id, spaces!inner(name))")
     .or(`name.ilike.${q},extracted_text.ilike.${q}`)
     .limit(4);
+  if (spaceIds) docQuery = docQuery.in("items.space_id", spaceIds);
+  const { data: docs } = await docQuery;
 
   for (const d of docs || []) {
     const item = (d as Record<string, unknown>).items as Record<string, unknown> | undefined;
@@ -277,12 +285,16 @@ export async function getDocumentCountForSpace(spaceId: string): Promise<number>
   return count || 0;
 }
 
-export async function getAllDocumentsWithContext(): Promise<{
+export async function getAllDocumentsWithContext(assignments?: UserAssignment[]): Promise<{
   id: string; itemId: string; spaceId: string; name: string; spaceName: string; itemName: string; text: string;
 }[]> {
-  const { data } = await supabase.from("documents")
+  if (assignments !== undefined && assignments.length === 0) return [];
+  const spaceIds = assignments ? [...new Set(assignments.map((a) => a.spaceId))] : undefined;
+  let query = supabase.from("documents")
     .select("*, items!inner(name, space_id, spaces!inner(name))")
     .not("extracted_text", "is", null);
+  if (spaceIds) query = query.in("items.space_id", spaceIds);
+  const { data } = await query;
 
   return (data || []).map((d) => {
     const item = (d as Record<string, unknown>).items as Record<string, unknown>;
@@ -296,15 +308,20 @@ export async function getAllDocumentsWithContext(): Promise<{
 }
 
 // --- Recent Activity ---
-export async function getRecentActivity(limit = 8): Promise<{
+export async function getRecentActivity(limit = 8, assignments?: UserAssignment[]): Promise<{
   type: "item" | "document"; id: string; name: string; itemId?: string; itemName?: string;
   spaceId: string; spaceName: string; createdAt: string;
 }[]> {
+  if (assignments !== undefined && assignments.length === 0) return [];
+  const spaceIds = assignments ? [...new Set(assignments.map((a) => a.spaceId))] : undefined;
+
   const activity: Awaited<ReturnType<typeof getRecentActivity>> = [];
 
-  const { data: items } = await supabase.from("items")
+  let itemQuery = supabase.from("items")
     .select("*, spaces!inner(name)")
     .order("created_at", { ascending: false }).limit(limit);
+  if (spaceIds) itemQuery = itemQuery.in("space_id", spaceIds);
+  const { data: items } = await itemQuery;
 
   for (const i of items || []) {
     const space = (i as Record<string, unknown>).spaces as Record<string, unknown>;
@@ -314,9 +331,11 @@ export async function getRecentActivity(limit = 8): Promise<{
     });
   }
 
-  const { data: docs } = await supabase.from("documents")
+  let docQuery = supabase.from("documents")
     .select("*, items!inner(name, space_id, spaces!inner(name))")
     .order("created_at", { ascending: false }).limit(limit);
+  if (spaceIds) docQuery = docQuery.in("items.space_id", spaceIds);
+  const { data: docs } = await docQuery;
 
   for (const d of docs || []) {
     const item = (d as Record<string, unknown>).items as Record<string, unknown>;
