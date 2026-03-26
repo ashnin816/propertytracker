@@ -65,6 +65,9 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [savingAssignment, setSavingAssignment] = useState<string | null>(null);
 
+  // Action menu
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
   // Admin password reset
   const [resetUser, setResetUser] = useState<TeamMember | null>(null);
   const [resetPassword, setResetPassword] = useState("");
@@ -395,47 +398,65 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                     </td>
                     {/* Actions */}
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-3 whitespace-nowrap">
-                        {canAssign && (
-                          <button onClick={() => handleExpandMember(m.id)} className={`flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md transition-colors cursor-pointer ${
-                            isExpanded ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20" : "text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                          }`}>
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                            </svg>
-                            Access
-                          </button>
-                        )}
-                        {canManage && (
-                          <button onClick={() => handleToggleStatus(m)}
-                            disabled={togglingStatus === m.id}
-                            className={`text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                              togglingStatus === m.id ? "opacity-50" : ""
-                            } ${isInactive
-                              ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                              : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                            }`}>
-                            {isInactive ? "Activate" : "Deactivate"}
-                          </button>
-                        )}
-                        {canManage && (
-                          <button onClick={() => { setResetUser(m); setResetPassword(""); setResetError(""); }}
-                            title="Reset password"
-                            className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                            </svg>
-                          </button>
-                        )}
-                        {canManage && (
-                          <button onClick={() => setDeleteUser(m)} title="Delete"
-                            className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
+                      {canManage ? (
+                        <div className="flex justify-end">
+                          <div className="relative">
+                            <button onClick={() => setOpenMenuId(openMenuId === m.id ? null : m.id)}
+                              className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                              </svg>
+                            </button>
+                            {openMenuId === m.id && (
+                              <>
+                                <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
+                                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-[#1a2332] rounded-xl shadow-xl border border-gray-200/60 dark:border-gray-700 z-50 overflow-hidden py-1">
+                                  {canAssign && (
+                                    <button onClick={() => { setOpenMenuId(null); handleExpandMember(m.id); }}
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                      </svg>
+                                      {m.role === "tenant" ? "Unit Access" : "Property Access"}
+                                    </button>
+                                  )}
+                                  <button onClick={() => { setOpenMenuId(null); setResetUser(m); setResetPassword(""); setResetError(""); }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                    </svg>
+                                    Reset Password
+                                  </button>
+                                  <button onClick={() => { setOpenMenuId(null); handleToggleStatus(m); }}
+                                    disabled={togglingStatus === m.id}
+                                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${
+                                      isInactive ? "text-emerald-600 dark:text-emerald-400" : "text-gray-700 dark:text-gray-200"
+                                    }`}>
+                                    {isInactive ? (
+                                      <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                    ) : (
+                                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                      </svg>
+                                    )}
+                                    {isInactive ? "Activate" : "Deactivate"}
+                                  </button>
+                                  <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
+                                  <button onClick={() => { setOpenMenuId(null); setDeleteUser(m); }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Delete
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
                     </td>
                   </tr>,
                   isExpanded && (
