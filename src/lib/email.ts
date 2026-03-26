@@ -4,7 +4,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM = "PropertyTracker+ <noreply@smarttimeplus.io>";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://propertytracker.vercel.app";
-const LOGO_SRC = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij4KICA8cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI4IiBmaWxsPSIjMjU2M2ViIi8+CiAgPHBhdGggZD0iTTY0IDI4TDI0IDYwaDEydjM0YTQgNCAwIDAwNCA0aDQ4YTQgNCAwIDAwNC00VjYwaDEyTDY0IDI4eiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuOSIvPgogIDxjaXJjbGUgY3g9Ijk2IiBjeT0iOTYiIHI9IjIyIiBmaWxsPSIjMjU2M2ViIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjQiLz4KICA8cGF0aCBkPSJNODggOTZoMTZNOTYgODh2MTYiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMy41IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPC9zdmc+Cg==";
+const LOGO_URL = `${APP_URL}/icon.svg`;
 
 function baseTemplate(content: string, accentColor = "#2563eb") {
   return `
@@ -13,19 +13,15 @@ function baseTemplate(content: string, accentColor = "#2563eb") {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <meta name="supported-color-schemes" content="light">
 </head>
 <body style="margin:0;padding:0;background:#f0f1f3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
-  <!-- Spacer -->
-  <div style="height:40px;"></div>
+  <div style="height:40px;font-size:0;line-height:0;">&nbsp;</div>
 
-  <!-- Card -->
-  <div style="max-width:520px;margin:0 auto;background:white;border-radius:20px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06),0 0 1px rgba(0,0,0,0.1);">
+  <div style="max-width:520px;margin:0 auto;background:white;border-radius:20px;overflow:hidden;border:1px solid #e5e7eb;">
 
     <!-- Header -->
-    <div style="background:linear-gradient(135deg, ${accentColor} 0%, #1d4ed8 100%);padding:32px 40px;text-align:center;">
-      <img src="${LOGO_SRC}" width="48" height="48" alt="PropertyTracker+" style="display:inline-block;border-radius:12px;margin-bottom:12px;" />
+    <div style="background:${accentColor};padding:32px 40px;text-align:center;">
+      <img src="${LOGO_URL}" width="48" height="48" alt="" style="display:inline-block;border-radius:12px;margin-bottom:12px;" />
       <div style="color:white;font-size:20px;font-weight:700;letter-spacing:-0.3px;">PropertyTracker+</div>
     </div>
 
@@ -36,23 +32,29 @@ function baseTemplate(content: string, accentColor = "#2563eb") {
 
     <!-- Footer -->
     <div style="padding:24px 40px;background:#fafafa;border-top:1px solid #f0f0f0;text-align:center;">
-      <p style="color:#aaa;font-size:11px;margin:0 0 4px;letter-spacing:0.3px;">PROPERTYTRACKER+</p>
+      <p style="color:#aaa;font-size:11px;margin:0 0 4px;letter-spacing:0.3px;text-transform:uppercase;">PropertyTracker+</p>
       <p style="color:#bbb;font-size:11px;margin:0;">AI-powered property document management</p>
     </div>
   </div>
 
-  <!-- Bottom spacer -->
-  <div style="height:40px;"></div>
+  <div style="height:40px;font-size:0;line-height:0;">&nbsp;</div>
 </body>
 </html>`;
 }
 
-function button(href: string, label: string, color = "#2563eb") {
+function button(href: string, label: string, bgColor = "#2563eb") {
+  // Using table-based button for maximum email client compatibility
   return `
     <div style="text-align:center;margin:32px 0;">
-      <a href="${href}" style="display:inline-block;background:${color};color:white;text-decoration:none;padding:14px 40px;border-radius:12px;font-size:15px;font-weight:600;letter-spacing:-0.2px;box-shadow:0 2px 8px rgba(37,99,235,0.3);">
-        ${label}
-      </a>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+        <tr>
+          <td style="background:${bgColor};border-radius:12px;">
+            <a href="${href}" style="display:inline-block;color:white;text-decoration:none;padding:14px 40px;font-size:15px;font-weight:600;letter-spacing:-0.2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+              ${label}
+            </a>
+          </td>
+        </tr>
+      </table>
     </div>`;
 }
 
@@ -110,7 +112,7 @@ export async function sendDeactivatedEmail(to: string, name: string) {
     subject: "Your account has been deactivated — PropertyTracker+",
     html: baseTemplate(`
       <h1 style="color:#1a1a1a;font-size:22px;font-weight:700;margin:0 0 12px;letter-spacing:-0.3px;">Account Deactivated</h1>
-      <p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 16px;">
+      <p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 20px;">
         Hi ${name}, your PropertyTracker+ account has been deactivated by your organization admin. You will no longer be able to sign in.
       </p>
       <div style="background:#fef3f2;border-radius:12px;padding:16px 20px;border-left:4px solid #ef4444;">
