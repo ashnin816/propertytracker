@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendWelcomeEmail, sendPasswordResetEmail, sendDeactivatedEmail, sendReactivatedEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -131,6 +132,11 @@ export async function POST(req: NextRequest) {
       console.error("Profile creation error:", profileError);
     }
 
+    // Send welcome email (don't block on failure)
+    sendWelcomeEmail(email, name, password).catch((err) =>
+      console.error("Welcome email failed:", err)
+    );
+
     return NextResponse.json({
       id: authData.user.id,
       email,
@@ -168,6 +174,16 @@ export async function PATCH(req: NextRequest) {
       } else {
         await admin.auth.admin.updateUserById(userId, { ban_duration: "none" });
       }
+
+      // Send status email (don't block on failure)
+      const { data: targetProfile } = await admin.from("profiles").select("email, name").eq("id", userId).single();
+      if (targetProfile) {
+        const emailFn = status === "inactive" ? sendDeactivatedEmail : sendReactivatedEmail;
+        emailFn(targetProfile.email, targetProfile.name).catch((err) =>
+          console.error("Status email failed:", err)
+        );
+      }
+
       return NextResponse.json({ success: true });
     }
 
@@ -243,6 +259,15 @@ export async function PATCH(req: NextRequest) {
       if (authErr) return NextResponse.json({ error: authErr.message }, { status: 500 });
       const { error: profErr } = await admin.from("profiles").update({ must_reset_password: true }).eq("id", userId);
       if (profErr) return NextResponse.json({ error: profErr.message }, { status: 500 });
+
+      // Send password reset email (don't block on failure)
+      const { data: targetProfile } = await admin.from("profiles").select("email, name").eq("id", userId).single();
+      if (targetProfile) {
+        sendPasswordResetEmail(targetProfile.email, targetProfile.name, newPassword).catch((err) =>
+          console.error("Password reset email failed:", err)
+        );
+      }
+
       return NextResponse.json({ success: true });
     }
 
