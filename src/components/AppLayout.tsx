@@ -403,16 +403,24 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   async function handleBulkUnits(unitNames: string[], template: { assets: { name: string; icon: string }[] } | null) {
     if (!selectedSpaceId) return;
     setShowBulkUnits(false);
+    toast(`Creating ${unitNames.length} unit${unitNames.length !== 1 ? "s" : ""}...`);
 
+    // Create all units in parallel
+    const units = await Promise.all(
+      unitNames.map((name) => createUnit(selectedSpaceId!, name))
+    );
+
+    // Create assets for all units in parallel
     let totalAssets = 0;
-    for (const name of unitNames) {
-      const unit = await createUnit(selectedSpaceId, name);
-      if (template && template.assets.length > 0) {
-        for (const asset of template.assets) {
-          await createItem(selectedSpaceId, asset.name, asset.icon, null, unit.id);
-          totalAssets++;
-        }
-      }
+    if (template && template.assets.length > 0) {
+      await Promise.all(
+        units.flatMap((unit) =>
+          template.assets.map((asset) => {
+            totalAssets++;
+            return createItem(selectedSpaceId!, asset.name, asset.icon, null, unit.id);
+          })
+        )
+      );
     }
 
     const [u, i] = await Promise.all([loadUnits(selectedSpaceId), getItemsForSpace(selectedSpaceId)]);
