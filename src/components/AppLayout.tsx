@@ -133,6 +133,13 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   const { user: authUser, logout } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
 
+  // Role-based permissions
+  const role = authUser?.role;
+  const canAddProperties = role === "org_admin" || role === "super_admin";
+  const canEditStructure = role === "org_admin" || role === "super_admin" || role === "manager"; // add/edit/delete units & assets
+  const canUpload = role !== "tenant"; // org_admin, manager, technician
+  const canDelete = role === "org_admin" || role === "super_admin" || role === "manager";
+
   // Update selectedSpace when selectedSpaceId changes
   useEffect(() => {
     if (selectedSpaceId) {
@@ -837,12 +844,14 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
           <div className="px-3 mb-1">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Properties</span>
-              <button onClick={() => setShowAddSpace(true)}
-                className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-white/10 transition-colors no-min-size cursor-pointer">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
+              {authUser?.assignments === undefined && (
+                <button onClick={() => setShowAddSpace(true)}
+                  className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-white/10 transition-colors no-min-size cursor-pointer">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
           {spaces.length === 0 ? (
@@ -896,10 +905,12 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                         </>
                       )}
                     </div>
-                    <ContextMenu items={[
-                      { label: "Rename", icon: "rename", onClick: () => setRenameTarget({ type: "space", id: space.id, name: space.name }) },
-                      { label: "Delete", icon: "delete", danger: true, onClick: () => setContextDeleteSpaceId(space.id) },
-                    ]} />
+                    {canAddProperties && (
+                      <ContextMenu items={[
+                        { label: "Rename", icon: "rename", onClick: () => setRenameTarget({ type: "space", id: space.id, name: space.name }) },
+                        { label: "Delete", icon: "delete", danger: true, onClick: () => setContextDeleteSpaceId(space.id) },
+                      ]} />
+                    )}
                   </div>
                 );
               })}
@@ -989,18 +1000,22 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
 
           <div className="flex items-center gap-3 ml-auto">
           {/* Space actions in header */}
-          {view === "space" && items.length > 0 && (
+          {view === "space" && items.length > 0 && (canUpload || canEditStructure) && (
             <div className="flex items-center gap-2 no-min-size">
-              <button onClick={() => document.getElementById("space-doc-upload")?.click()}
-                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-xs font-medium cursor-pointer no-min-size">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                Upload
-              </button>
-              <button onClick={() => setShowAddItem(true)}
-                className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-medium cursor-pointer no-min-size">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-                <span className="hidden sm:inline">Add Asset</span>
-              </button>
+              {canUpload && (
+                <button onClick={() => document.getElementById("space-doc-upload")?.click()}
+                  className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-xs font-medium cursor-pointer no-min-size">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                  Upload
+                </button>
+              )}
+              {canEditStructure && (
+                <button onClick={() => setShowAddItem(true)}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-medium cursor-pointer no-min-size">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                  <span className="hidden sm:inline">Add Asset</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -1259,20 +1274,28 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
               {items.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center">
                   <span className="text-4xl mb-3 block">{spaceIcon.emoji}</span>
-                  <p className="text-lg font-bold dark:text-white mb-2">Set up {selectedSpace.name}</p>
-                  <p className="text-sm text-gray-400 mb-6">What assets does this property have? Tap to add.</p>
-                  <div className="grid grid-cols-2 gap-3 w-full max-w-md">
-                    {getPresetsForSpaceType(selectedSpace.icon).slice(0, 8).map((preset) => {
-                      const c = getCategoryColors(preset.category);
-                      return (
-                        <button key={preset.key} onClick={() => handleQuickAddItem(preset.label, preset.key)}
-                          className="rounded-2xl bg-white dark:bg-[#1a2332] p-4 active:scale-95 transition-all shadow-md hover:shadow-lg text-left no-min-size">
-                          <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: preset.svg }} />
-                          <p className="text-sm font-semibold dark:text-white">{preset.label}</p>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {canEditStructure ? (
+                    <>
+                      <p className="text-lg font-bold dark:text-white mb-2">Set up {selectedSpace.name}</p>
+                      <p className="text-sm text-gray-400 mb-6">What assets does this property have? Tap to add.</p>
+                      <div className="grid grid-cols-2 gap-3 w-full max-w-md">
+                        {getPresetsForSpaceType(selectedSpace.icon).slice(0, 8).map((preset) => {
+                          return (
+                            <button key={preset.key} onClick={() => handleQuickAddItem(preset.label, preset.key)}
+                              className="rounded-2xl bg-white dark:bg-[#1a2332] p-4 active:scale-95 transition-all shadow-md hover:shadow-lg text-left no-min-size">
+                              <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: preset.svg }} />
+                              <p className="text-sm font-semibold dark:text-white">{preset.label}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-lg font-bold dark:text-white mb-2">{selectedSpace.name}</p>
+                      <p className="text-sm text-gray-400">No assets have been set up for this property yet</p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div>
@@ -1290,12 +1313,14 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
 
                         <div className="rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow bg-white dark:bg-[#1a2332] relative">
                           {/* Context menu — top right corner */}
-                          <div className="absolute top-2 right-2 z-10">
-                            <ContextMenu items={[
-                              { label: "Rename", icon: "rename", onClick: () => setRenameTarget({ type: "item", id: item.id, name: item.name }) },
-                              { label: "Delete", icon: "delete", danger: true, onClick: () => setContextDeleteItemId(item.id) },
-                            ]} />
-                          </div>
+                          {canEditStructure && (
+                            <div className="absolute top-2 right-2 z-10">
+                              <ContextMenu items={[
+                                { label: "Rename", icon: "rename", onClick: () => setRenameTarget({ type: "item", id: item.id, name: item.name }) },
+                                { label: "Delete", icon: "delete", danger: true, onClick: () => setContextDeleteItemId(item.id) },
+                              ]} />
+                            </div>
+                          )}
 
                           {item.photoUrl ? (
                             <div className="aspect-square overflow-hidden" onClick={() => selectItem(item.id)}>
@@ -1348,11 +1373,13 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Units ({units.length})</span>
-                    <button onClick={() => setShowBulkUnits(true)}
-                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-medium cursor-pointer no-min-size">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-                      Add Units
-                    </button>
+                    {canEditStructure && (
+                      <button onClick={() => setShowBulkUnits(true)}
+                        className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-medium cursor-pointer no-min-size">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                        Add Units
+                      </button>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                     {units.map((unit) => {
@@ -1366,7 +1393,8 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                       return (
                         <UnitCard key={unit.id} unit={unit} onSelect={() => selectUnit(unit.id)}
                           onRename={() => setRenameTarget({ type: "unit", id: unit.id, name: unit.name })}
-                          onDelete={() => setContextDeleteUnitId(unit.id)} />
+                          onDelete={() => setContextDeleteUnitId(unit.id)}
+                          canEdit={canEditStructure} />
                       );
                     })}
                   </div>
@@ -1377,11 +1405,17 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                 <div className="text-center py-8 mb-6">
                   <span className="text-4xl mb-3 block">🏢</span>
                   <p className="font-semibold dark:text-white mb-2">No units yet</p>
-                  <p className="text-sm text-gray-400 mb-4">Add units to start organizing this property</p>
-                  <button onClick={() => setShowBulkUnits(true)}
-                    className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all font-medium text-sm cursor-pointer no-min-size">
-                    + Add Units
-                  </button>
+                  {canEditStructure ? (
+                    <>
+                      <p className="text-sm text-gray-400 mb-4">Add units to start organizing this property</p>
+                      <button onClick={() => setShowBulkUnits(true)}
+                        className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all font-medium text-sm cursor-pointer no-min-size">
+                        + Add Units
+                      </button>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-400">No units have been set up for this property</p>
+                  )}
                 </div>
               )}
 
@@ -1397,12 +1431,14 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                       return (
                         <div key={item.id}
                           className="group card rounded-2xl overflow-hidden text-left active:scale-[0.97] transition-all hover:shadow-lg cursor-pointer no-min-size relative">
-                          <div className="absolute top-2 right-2 z-10">
-                            <ContextMenu items={[
-                              { label: "Rename", icon: "rename", onClick: () => setRenameTarget({ type: "item", id: item.id, name: item.name }) },
-                              { label: "Delete", icon: "delete", danger: true, onClick: () => setContextDeleteItemId(item.id) },
-                            ]} />
-                          </div>
+                          {canEditStructure && (
+                            <div className="absolute top-2 right-2 z-10">
+                              <ContextMenu items={[
+                                { label: "Rename", icon: "rename", onClick: () => setRenameTarget({ type: "item", id: item.id, name: item.name }) },
+                                { label: "Delete", icon: "delete", danger: true, onClick: () => setContextDeleteItemId(item.id) },
+                              ]} />
+                            </div>
+                          )}
                           <div className="aspect-square flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-800/50" onClick={() => selectItem(item.id)}>
                             {(preset?.svg || ci?.svg) ? (
                               <div className="w-3/4 h-3/4 group-hover:scale-110 transition-transform" dangerouslySetInnerHTML={{ __html: (preset?.svg || ci?.svg)! }} />
@@ -1422,13 +1458,15 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
               )}
 
               {/* Add building asset */}
-              <div className="flex justify-center mt-6">
-                <button onClick={() => setShowAddItem(true)}
-                  className="flex items-center gap-1.5 h-9 px-4 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-xs font-medium cursor-pointer no-min-size">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-                  Add Building Asset
-                </button>
-              </div>
+              {canEditStructure && (
+                <div className="flex justify-center mt-6">
+                  <button onClick={() => setShowAddItem(true)}
+                    className="flex items-center gap-1.5 h-9 px-4 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-xs font-medium cursor-pointer no-min-size">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                    Add Building Asset
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -1438,27 +1476,35 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
               {items.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center py-12">
                   <span className="text-4xl mb-3">🚪</span>
-                  <p className="text-lg font-bold dark:text-white mb-2">Set up {selectedUnit?.name}</p>
-                  <p className="text-sm text-gray-400 mb-6">What assets does this unit have?</p>
-                  <div className="grid grid-cols-2 gap-3 w-full max-w-md">
-                    {getPresetsForSpaceType(selectedSpace.icon).slice(0, 6).map((preset) => {
-                      const c = getCategoryColors(preset.category);
-                      return (
-                        <button key={preset.key} onClick={async () => {
-                          if (selectedSpaceId) {
-                            await createItem(selectedSpaceId, preset.label, preset.key, null, selectedUnitId);
-                            setItems(await getItemsForUnit(selectedUnitId));
-                            await refreshSpaces();
-                            toast(`${preset.label} added`);
-                          }
-                        }}
-                          className="card rounded-2xl p-4 active:scale-95 transition-all hover:shadow-lg text-left no-min-size cursor-pointer">
-                          <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: preset.svg }} />
-                          <p className="text-sm font-semibold dark:text-white">{preset.label}</p>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {canEditStructure ? (
+                    <>
+                      <p className="text-lg font-bold dark:text-white mb-2">Set up {selectedUnit?.name}</p>
+                      <p className="text-sm text-gray-400 mb-6">What assets does this unit have?</p>
+                      <div className="grid grid-cols-2 gap-3 w-full max-w-md">
+                        {getPresetsForSpaceType(selectedSpace.icon).slice(0, 6).map((preset) => {
+                          return (
+                            <button key={preset.key} onClick={async () => {
+                              if (selectedSpaceId) {
+                                await createItem(selectedSpaceId, preset.label, preset.key, null, selectedUnitId);
+                                setItems(await getItemsForUnit(selectedUnitId));
+                                await refreshSpaces();
+                                toast(`${preset.label} added`);
+                              }
+                            }}
+                              className="card rounded-2xl p-4 active:scale-95 transition-all hover:shadow-lg text-left no-min-size cursor-pointer">
+                              <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: preset.svg }} />
+                              <p className="text-sm font-semibold dark:text-white">{preset.label}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-lg font-bold dark:text-white mb-2">{selectedUnit?.name}</p>
+                      <p className="text-sm text-gray-400">No assets have been set up for this unit yet</p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -1469,12 +1515,14 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                     return (
                       <div key={item.id}
                         className="group card rounded-2xl overflow-hidden text-left active:scale-[0.97] transition-all hover:shadow-lg cursor-pointer no-min-size relative">
-                        <div className="absolute top-2 right-2 z-10">
-                          <ContextMenu items={[
-                            { label: "Rename", icon: "rename", onClick: () => setRenameTarget({ type: "item", id: item.id, name: item.name }) },
-                            { label: "Delete", icon: "delete", danger: true, onClick: () => setContextDeleteItemId(item.id) },
-                          ]} />
-                        </div>
+                        {canEditStructure && (
+                          <div className="absolute top-2 right-2 z-10">
+                            <ContextMenu items={[
+                              { label: "Rename", icon: "rename", onClick: () => setRenameTarget({ type: "item", id: item.id, name: item.name }) },
+                              { label: "Delete", icon: "delete", danger: true, onClick: () => setContextDeleteItemId(item.id) },
+                            ]} />
+                          </div>
+                        )}
                         {item.photoUrl ? (
                           <div className="aspect-square overflow-hidden" onClick={() => selectItem(item.id)}>
                             <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -1498,7 +1546,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                 </div>
               )}
 
-              {items.length > 0 && (
+              {canEditStructure && items.length > 0 && (
                 <div className="flex justify-center mt-6">
                   <button onClick={() => setShowAddItem(true)}
                     className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-medium cursor-pointer no-min-size">
@@ -1514,9 +1562,11 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
           {view === "item" && selectedItem && (
             <div className="p-4 min-h-full flex flex-col">
               <div className="max-w-3xl mx-auto w-full flex-1 flex flex-col">
-                <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
-                  onChange={(e) => { if (e.target.files) processFiles(e.target.files); e.target.value = ""; }}
-                  className="hidden" id="doc-upload" />
+                {canUpload && (
+                  <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
+                    onChange={(e) => { if (e.target.files) processFiles(e.target.files); e.target.value = ""; }}
+                    className="hidden" id="doc-upload" />
+                )}
 
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Documents ({documents.length})</span>
@@ -1531,23 +1581,27 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                         </svg>
                       </div>
                       <p className="font-semibold dark:text-gray-200 mb-3">No documents yet</p>
-                      <div
-                        className={`border-2 border-dashed rounded-2xl py-10 px-6 text-center cursor-pointer transition-all ${
-                          dragging ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20" : "border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10"
-                        }`}
-                        onClick={() => document.getElementById("doc-upload")?.click()}
-                        onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(true); }}
-                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                        onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(false); }}
-                        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(false); if (e.dataTransfer.files.length > 0) processFiles(e.dataTransfer.files); }}
-                      >
-                        <svg className={`w-10 h-10 mx-auto mb-3 transition-colors ${dragging ? "text-blue-400" : "text-gray-300 dark:text-gray-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                        <p className={`text-sm font-medium transition-colors ${dragging ? "text-blue-500" : "text-gray-400"}`}>
-                          {dragging ? "Drop to upload" : "Drag files here or click to upload"}
-                        </p>
-                      </div>
+                      {canUpload ? (
+                        <div
+                          className={`border-2 border-dashed rounded-2xl py-10 px-6 text-center cursor-pointer transition-all ${
+                            dragging ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20" : "border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10"
+                          }`}
+                          onClick={() => document.getElementById("doc-upload")?.click()}
+                          onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(true); }}
+                          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                          onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(false); }}
+                          onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(false); if (e.dataTransfer.files.length > 0) processFiles(e.dataTransfer.files); }}
+                        >
+                          <svg className={`w-10 h-10 mx-auto mb-3 transition-colors ${dragging ? "text-blue-400" : "text-gray-300 dark:text-gray-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          <p className={`text-sm font-medium transition-colors ${dragging ? "text-blue-500" : "text-gray-400"}`}>
+                            {dragging ? "Drop to upload" : "Drag files here or click to upload"}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-400">No documents have been uploaded for this asset</p>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -1609,10 +1663,12 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                             className="p-2 text-gray-300 dark:text-gray-600 hover:text-blue-500 transition-colors cursor-pointer">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                           </a>
-                          <button onClick={(e) => { e.stopPropagation(); setDeleteDocId(doc.id); }}
-                            className="p-2 text-gray-300 dark:text-gray-600 hover:text-red-500 transition-colors cursor-pointer">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                          </button>
+                          {canDelete && (
+                            <button onClick={(e) => { e.stopPropagation(); setDeleteDocId(doc.id); }}
+                              className="p-2 text-gray-300 dark:text-gray-600 hover:text-red-500 transition-colors cursor-pointer">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                          )}
                         </div>
                       </div>
                       );
@@ -1620,7 +1676,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                   </div>
                 )}
 
-                {documents.length > 0 && (
+                {canUpload && documents.length > 0 && (
                   <div
                     className={`mt-3 border-2 border-dashed rounded-xl py-4 text-center text-sm cursor-pointer transition-all ${
                       dragging ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-500" : "border-gray-300 dark:border-gray-600 text-gray-400 hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 hover:text-blue-400"
@@ -1635,17 +1691,19 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                   </div>
                 )}
                 {/* Centered add document button */}
-                <div className="sticky bottom-6 flex justify-center mt-4 pointer-events-none">
-                  <button
-                    onClick={() => document.getElementById("doc-upload")?.click()}
-                    className="pointer-events-auto cursor-pointer bg-blue-600 text-white h-12 px-6 rounded-full shadow-lg shadow-blue-500/30 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-500/40 active:scale-95 transition-all duration-200 flex items-center gap-2 font-semibold text-sm no-min-size"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Document
-                  </button>
-                </div>
+                {canUpload && (
+                  <div className="sticky bottom-6 flex justify-center mt-4 pointer-events-none">
+                    <button
+                      onClick={() => document.getElementById("doc-upload")?.click()}
+                      className="pointer-events-auto cursor-pointer bg-blue-600 text-white h-12 px-6 rounded-full shadow-lg shadow-blue-500/30 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-500/40 active:scale-95 transition-all duration-200 flex items-center gap-2 font-semibold text-sm no-min-size"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Document
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1750,11 +1808,12 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
 }
 
 // Helper component for unit cards that loads its own item count
-function UnitCard({ unit, onSelect, onRename, onDelete }: {
+function UnitCard({ unit, onSelect, onRename, onDelete, canEdit }: {
   unit: Unit;
   onSelect: () => void;
   onRename: () => void;
   onDelete: () => void;
+  canEdit?: boolean;
 }) {
   const [assetCount, setAssetCount] = useState(0);
 
@@ -1765,12 +1824,14 @@ function UnitCard({ unit, onSelect, onRename, onDelete }: {
   return (
     <div onClick={onSelect}
       className="group card rounded-2xl p-4 text-left active:scale-[0.97] transition-all hover:shadow-lg cursor-pointer no-min-size relative">
-      <div className="absolute top-2 right-2 z-10">
-        <ContextMenu items={[
-          { label: "Rename", icon: "rename", onClick: onRename },
-          { label: "Delete", icon: "delete", danger: true, onClick: onDelete },
-        ]} />
-      </div>
+      {canEdit && (
+        <div className="absolute top-2 right-2 z-10">
+          <ContextMenu items={[
+            { label: "Rename", icon: "rename", onClick: onRename },
+            { label: "Delete", icon: "delete", danger: true, onClick: onDelete },
+          ]} />
+        </div>
+      )}
       <span className="text-3xl mb-2 block">🚪</span>
       <p className="font-bold text-sm dark:text-white truncate">{unit.name}</p>
       <p className="text-xs text-gray-400 mt-0.5">{assetCount} asset{assetCount !== 1 ? "s" : ""}</p>
