@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "./AuthProvider";
 import { Space, Unit } from "@/lib/types";
 
@@ -67,6 +68,8 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
 
   // Action menu
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
 
   // Admin password reset
   const [resetUser, setResetUser] = useState<TeamMember | null>(null);
@@ -400,17 +403,23 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       {canManage ? (
                         <div className="flex justify-end">
-                          <div className="relative">
-                            <button onClick={() => setOpenMenuId(openMenuId === m.id ? null : m.id)}
-                              className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                              </svg>
-                            </button>
-                            {openMenuId === m.id && (
-                              <>
-                                <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
-                                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-[#1a2332] rounded-xl shadow-xl border border-gray-200/60 dark:border-gray-700 z-50 overflow-hidden py-1">
+                          <button ref={openMenuId === m.id ? menuBtnRef : undefined}
+                            onClick={(e) => {
+                              if (openMenuId === m.id) { setOpenMenuId(null); return; }
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                              setOpenMenuId(m.id);
+                            }}
+                            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                            </svg>
+                          </button>
+                          {openMenuId === m.id && createPortal(
+                            <>
+                              <div className="fixed inset-0 z-[200]" onClick={() => setOpenMenuId(null)} />
+                              <div className="fixed w-48 bg-white dark:bg-[#1a2332] rounded-xl shadow-xl border border-gray-200/60 dark:border-gray-700 z-[201] overflow-hidden py-1"
+                                style={{ top: menuPos.top, right: menuPos.right }}>
                                   {canAssign && (
                                     <button onClick={() => { setOpenMenuId(null); handleExpandMember(m.id); }}
                                       className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
@@ -452,9 +461,9 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                                     Delete
                                   </button>
                                 </div>
-                              </>
+                              </>,
+                              document.body
                             )}
-                          </div>
                         </div>
                       ) : null}
                     </td>
