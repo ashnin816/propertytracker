@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "./AuthProvider";
-import { Space, Item, InboxDocument } from "@/lib/types";
-import { getItemsForSpace } from "@/lib/supabase-storage";
+import { Space, Unit, Item, InboxDocument } from "@/lib/types";
+import { getItemsForSpace, getItemsForUnit } from "@/lib/supabase-storage";
+import { hasUnits } from "@/lib/presets";
 import { authFetch } from "@/lib/supabase";
 import { timeAgo } from "@/lib/time";
 import DocTypeIcon from "./DocTypeIcon";
@@ -15,9 +16,13 @@ interface InboxPanelProps {
 
 interface DocAssignment {
   spaceId: string;
+  unitId: string;
   itemId: string;
+  units: Unit[];
   items: Item[];
+  loadingUnits: boolean;
   loadingItems: boolean;
+  isUnitBased: boolean;
   name: string;
   editingName: boolean;
 }
@@ -63,21 +68,34 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
       const mapped = Array.isArray(data) ? data.map(mapDoc) : [];
       setDocs(mapped);
       // Pre-fill assignments from AI suggestions
+      const emptyAssignment = (name: string): DocAssignment => ({ spaceId: "", unitId: "", itemId: "", units: [], items: [], loadingUnits: false, loadingItems: false, isUnitBased: false, name, editingName: false });
       const newAssignments: Record<string, DocAssignment> = {};
       for (const doc of mapped) {
         if (doc.suggestedSpaceId) {
-          // AI matched a property (and possibly an item)
+          const space = spaces.find((s) => s.id === doc.suggestedSpaceId);
+          const unitBased = space ? hasUnits(space.icon) : false;
           const items = await getItemsForSpace(doc.suggestedSpaceId);
           newAssignments[doc.id] = {
             spaceId: doc.suggestedSpaceId,
+            unitId: "",
             itemId: doc.suggestedItemId || "",
-            items,
+            units: [],
+            items: unitBased ? [] : items,
+            loadingUnits: false,
             loadingItems: false,
+            isUnitBased: unitBased,
             name: doc.fileName,
             editingName: false,
           };
+          // Load units if unit-based property
+          if (unitBased) {
+            const unitsRes = await authFetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_units", spaceId: doc.suggestedSpaceId }) });
+            const unitsData = await unitsRes.json();
+            const units: Unit[] = Array.isArray(unitsData) ? unitsData.map((u: Record<string, string>) => ({ id: u.id, spaceId: u.space_id, name: u.name, createdAt: "" })) : [];
+            newAssignments[doc.id].units = units;
+          }
         } else {
-          newAssignments[doc.id] = { spaceId: "", itemId: "", items: [], loadingItems: false, name: doc.fileName, editingName: false };
+          newAssignments[doc.id] = emptyAssignment(doc.fileName);
         }
       }
       setAssignments(newAssignments);
@@ -86,16 +104,36 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
   }
 
   function getAssignment(doc: InboxDocument): DocAssignment {
-    return assignments[doc.id] || { spaceId: "", itemId: "", items: [], loadingItems: false, name: doc.fileName, editingName: false };
+    return assignments[doc.id] || { spaceId: "", unitId: "", itemId: "", units: [], items: [], loadingUnits: false, loadingItems: false, isUnitBased: false, name: doc.fileName, editingName: false };
   }
 
   async function handleSpaceChange(docId: string, spaceId: string) {
-    setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], spaceId, itemId: "", items: [], loadingItems: true } }));
-    if (spaceId) {
+    const space = spaces.find((s) => s.id === spaceId);
+    const unitBased = space ? hasUnits(space.icon) : false;
+    setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], spaceId, unitId: "", itemId: "", units: [], items: [], isUnitBased: unitBased, loadingUnits: unitBased, loadingItems: !unitBased } }));
+    if (!spaceId) {
+      setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], spaceId: "", unitId: "", itemId: "", units: [], items: [], isUnitBased: false, loadingUnits: false, loadingItems: false } }));
+      return;
+    }
+    if (unitBased) {
+      // Fetch units via API (bypasses RLS)
+      const res = await authFetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_units", spaceId }) });
+      const data = await res.json();
+      const units: Unit[] = Array.isArray(data) ? data.map((u: Record<string, string>) => ({ id: u.id, spaceId: u.space_id, name: u.name, createdAt: "" })) : [];
+      setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], units, loadingUnits: false } }));
+    } else {
       const items = await getItemsForSpace(spaceId);
       setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], items, loadingItems: false } }));
+    }
+  }
+
+  async function handleUnitChange(docId: string, unitId: string) {
+    setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], unitId, itemId: "", items: [], loadingItems: true } }));
+    if (unitId) {
+      const items = await getItemsForUnit(unitId);
+      setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], items, loadingItems: false } }));
     } else {
-      setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], spaceId: "", itemId: "", items: [], loadingItems: false } }));
+      setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], unitId: "", itemId: "", items: [], loadingItems: false } }));
     }
   }
 
@@ -263,7 +301,8 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
                   {/* Assignment controls */}
                   <div className="px-4 pb-4">
                     <div className="flex flex-wrap items-end gap-2">
-                      <div className="flex-1 min-w-[140px]">
+                      {/* Property */}
+                      <div className="flex-1 min-w-[130px]">
                         <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Property</label>
                         <select value={a.spaceId} onChange={(e) => handleSpaceChange(doc.id, e.target.value)}
                           className={`w-full appearance-none border rounded-lg px-3 py-2 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow ${
@@ -275,7 +314,29 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
                           {spaces.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                       </div>
-                      <div className="flex-1 min-w-[140px]">
+
+                      {/* Unit (only for unit-based properties) */}
+                      {a.isUnitBased && (
+                        <div className="flex-1 min-w-[130px]">
+                          <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Unit</label>
+                          {a.loadingUnits ? (
+                            <div className="flex items-center gap-2 h-[38px] px-3 text-xs text-gray-400">
+                              <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                              Loading...
+                            </div>
+                          ) : (
+                            <select value={a.unitId} onChange={(e) => handleUnitChange(doc.id, e.target.value)}
+                              disabled={!a.spaceId || a.units.length === 0}
+                              className="w-full appearance-none bg-gray-50 dark:bg-[#0c1222] border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:text-gray-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-40 transition-shadow">
+                              <option value="">{!a.spaceId ? "Select property first" : a.units.length === 0 ? "No units" : "Select unit..."}</option>
+                              {a.units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                            </select>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Asset */}
+                      <div className="flex-1 min-w-[130px]">
                         <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Asset</label>
                         {a.loadingItems ? (
                           <div className="flex items-center gap-2 h-[38px] px-3 text-xs text-gray-400">
@@ -284,17 +345,20 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
                           </div>
                         ) : (
                           <select value={a.itemId} onChange={(e) => handleItemChange(doc.id, e.target.value)}
-                            disabled={!a.spaceId || a.items.length === 0}
+                            disabled={(!a.spaceId || (a.isUnitBased && !a.unitId)) || a.items.length === 0}
                             className={`w-full appearance-none border rounded-lg px-3 py-2 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-40 transition-shadow ${
                               hasAiSuggestion && a.itemId === doc.suggestedItemId
                                 ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 text-blue-900 dark:text-blue-200"
                                 : "bg-gray-50 dark:bg-[#0c1222] border-gray-200 dark:border-gray-700 dark:text-gray-200"
                             }`}>
-                            <option value="">{!a.spaceId ? "Select property first" : a.items.length === 0 ? "No assets" : "Select asset..."}</option>
+                            <option value="">
+                              {!a.spaceId ? "Select property first" : a.isUnitBased && !a.unitId ? "Select unit first" : a.items.length === 0 ? "No assets" : "Select asset..."}
+                            </option>
                             {a.items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                           </select>
                         )}
                       </div>
+
                       <button onClick={() => handleAssign(doc.id)}
                         disabled={!a.itemId || isSaving}
                         className="px-6 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm shadow-blue-500/20">
