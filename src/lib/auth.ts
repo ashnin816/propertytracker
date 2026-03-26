@@ -75,17 +75,26 @@ export async function getProfile(): Promise<UserProfile | null> {
       orgName = org?.name;
     }
 
-    // Fetch assignments for non-admin roles
+    // Fetch assignments for non-admin roles (via API to bypass RLS)
     let assignments: UserAssignment[] | undefined;
     const role = profile.role as UserProfile["role"];
     if (role !== "org_admin" && role !== "super_admin") {
-      const { data: assignData } = await supabase.from("user_assignments")
-        .select("space_id, unit_id")
-        .eq("user_id", user.id);
-      assignments = (assignData || []).map((a: Record<string, unknown>) => ({
-        spaceId: a.space_id as string,
-        unitId: a.unit_id as string | null,
-      }));
+      try {
+        const res = await fetch("/api/users", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get_assignments", userId: user.id }),
+        });
+        const assignData = await res.json();
+        assignments = Array.isArray(assignData)
+          ? assignData.map((a: Record<string, unknown>) => ({
+              spaceId: a.space_id as string,
+              unitId: a.unit_id as string | null,
+            }))
+          : [];
+      } catch {
+        assignments = [];
+      }
     }
 
     return {
