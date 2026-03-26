@@ -26,6 +26,9 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
   const [loadingItems, setLoadingItems] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Preview
+  const [previewId, setPreviewId] = useState<string | null>(null);
+
   // Dismiss
   const [dismissId, setDismissId] = useState<string | null>(null);
   const [dismissing, setDismissing] = useState(false);
@@ -149,8 +152,9 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
           <div className="space-y-3">
             {docs.map((doc) => (
               <div key={doc.id} className="bg-white dark:bg-[#1a2332] rounded-xl border border-gray-200/60 dark:border-gray-800 overflow-hidden">
-                {/* Document info */}
-                <div className="flex items-start gap-4 p-4">
+                {/* Document info — clickable for preview */}
+                <div className="flex items-start gap-4 p-4 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors"
+                  onClick={() => setPreviewId(previewId === doc.id ? null : doc.id)}>
                   <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
                     <DocTypeIcon fileType={doc.fileType} fileName={doc.fileName} className="w-5 h-5 text-gray-500" />
                   </div>
@@ -163,14 +167,40 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
                       <p className="text-xs text-gray-400 mt-0.5 truncate">Subject: {doc.subject}</p>
                     )}
                   </div>
-                  <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
-                    className="p-2 text-gray-400 hover:text-blue-500 transition-colors cursor-pointer flex-shrink-0"
-                    title="Preview">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </a>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md transition-colors ${
+                      previewId === doc.id ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" : "text-gray-400"
+                    }`}>
+                      {previewId === doc.id ? "Hide" : "Preview"}
+                    </span>
+                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-2 text-gray-400 hover:text-blue-500 transition-colors cursor-pointer"
+                      title="Open in new tab">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  </div>
                 </div>
+
+                {/* Inline preview */}
+                {previewId === doc.id && (
+                  <div className="px-4 pb-4">
+                    <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                      {doc.fileType.startsWith("image/") ? (
+                        <img src={doc.fileUrl} alt={doc.fileName} className="w-full max-h-[400px] object-contain" />
+                      ) : doc.fileType === "application/pdf" ? (
+                        <iframe src={doc.fileUrl} className="w-full h-[400px]" title={doc.fileName} />
+                      ) : (
+                        <div className="p-6 text-center text-sm text-gray-400">
+                          Preview not available for this file type.
+                          <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 ml-1 hover:underline">Download</a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* AI suggestion */}
                 {doc.suggestedSpaceName && doc.suggestedItemName && (
