@@ -286,7 +286,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                       {/* Actions */}
                       <div className="flex items-center justify-end gap-3 flex-nowrap" onClick={(e) => e.stopPropagation()}>
                         {canAssign && (
-                          <button className={`flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                          <button onClick={() => handleExpandMember(m.id)} className={`flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
                             isExpanded ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20" : "text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                           }`}>
                             <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
