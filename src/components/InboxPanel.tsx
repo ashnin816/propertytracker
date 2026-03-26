@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "./AuthProvider";
 import { Space, Item, InboxDocument } from "@/lib/types";
-import { getInboxDocuments, assignInboxDocument, deleteInboxDocument, getItemsForSpace } from "@/lib/supabase-storage";
+import { getItemsForSpace } from "@/lib/supabase-storage";
 import { authFetch } from "@/lib/supabase";
 import { timeAgo } from "@/lib/time";
 import DocTypeIcon from "./DocTypeIcon";
@@ -81,7 +81,11 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
   async function handleAssign(docId: string) {
     if (!selectedItemId) return;
     setSaving(true);
-    await assignInboxDocument(docId, selectedItemId);
+    await authFetch("/api/inbox", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inboxDocId: docId, itemId: selectedItemId }),
+    });
     setDocs((prev) => prev.filter((d) => d.id !== docId));
     setAssigningId(null);
     setSelectedSpaceId("");
@@ -93,19 +97,24 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
   async function handleAcceptSuggestion(doc: InboxDocument) {
     if (!doc.suggestedItemId) return;
     setSaving(true);
-    await assignInboxDocument(doc.id, doc.suggestedItemId);
+    await authFetch("/api/inbox", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inboxDocId: doc.id, itemId: doc.suggestedItemId }),
+    });
     setDocs((prev) => prev.filter((d) => d.id !== doc.id));
     setSaving(false);
     onAssigned?.();
   }
 
-  async function handleDismiss() {
+  async function handleDelete() {
     if (!dismissId) return;
     setDismissing(true);
-    await deleteInboxDocument(dismissId);
+    await authFetch(`/api/inbox?id=${dismissId}`, { method: "DELETE" });
     setDocs((prev) => prev.filter((d) => d.id !== dismissId));
     setDismissId(null);
     setDismissing(false);
+    onAssigned?.();
   }
 
   if (loading) {
@@ -269,7 +278,7 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
                 className="flex-1 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#0c1222] active:scale-[0.98] transition-all font-medium text-sm cursor-pointer">
                 Cancel
               </button>
-              <button onClick={handleDismiss} disabled={dismissing}
+              <button onClick={handleDelete} disabled={dismissing}
                 className="flex-1 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 active:scale-[0.98] disabled:opacity-40 transition-all font-medium text-sm cursor-pointer">
                 {dismissing ? "Deleting..." : "Delete"}
               </button>
@@ -280,42 +289,52 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
 
       {/* Preview modal */}
       {previewDoc && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setPreviewDoc(null)}>
-          <div className="bg-white dark:bg-[#1a2332] rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col animate-scale-in overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6 sm:p-10 animate-fade-in" onClick={() => setPreviewDoc(null)}>
+          <div className="bg-white dark:bg-[#1a2332] rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-scale-in overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
-              <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between px-6 py-3.5 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
+              <div className="min-w-0 flex-1 mr-4">
                 <p className="text-sm font-semibold dark:text-white truncate">{previewDoc.fileName}</p>
                 <p className="text-xs text-gray-400 mt-0.5">From {previewDoc.senderName || previewDoc.senderEmail} · {timeAgo(previewDoc.createdAt)}</p>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+              <div className="flex items-center gap-1 flex-shrink-0">
                 <a href={previewDoc.fileUrl} target="_blank" rel="noopener noreferrer"
-                  className="p-2 text-gray-400 hover:text-blue-500 transition-colors cursor-pointer rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-                  title="Open in new tab">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors cursor-pointer">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
+                  Open
                 </a>
                 <button onClick={() => setPreviewDoc(null)}
-                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
+                  Close
                 </button>
               </div>
             </div>
             {/* Content */}
             <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
               {previewDoc.fileType.startsWith("image/") ? (
-                <div className="flex items-center justify-center p-4 min-h-[300px]">
-                  <img src={previewDoc.fileUrl} alt={previewDoc.fileName} className="max-w-full max-h-[70vh] object-contain rounded-lg" />
+                <div className="flex items-center justify-center p-6 min-h-[300px]">
+                  <img src={previewDoc.fileUrl} alt={previewDoc.fileName} className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-sm" />
                 </div>
               ) : previewDoc.fileType === "application/pdf" ? (
-                <iframe src={previewDoc.fileUrl} className="w-full h-[70vh]" title={previewDoc.fileName} />
+                <iframe src={previewDoc.fileUrl} className="w-full h-[75vh] border-0" title={previewDoc.fileName} />
               ) : (
-                <div className="flex items-center justify-center p-12 text-sm text-gray-400">
-                  Preview not available for this file type.
-                  <a href={previewDoc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 ml-1 hover:underline">Download</a>
+                <div className="flex flex-col items-center justify-center p-12 gap-4">
+                  <svg className="w-12 h-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="text-sm text-gray-400">Preview not available for this file type</p>
+                  <a href={previewDoc.fileUrl} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all font-medium text-sm cursor-pointer">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download File
+                  </a>
                 </div>
               )}
             </div>
