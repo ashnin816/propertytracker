@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import pdfParse from "pdf-parse-new";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -76,8 +77,62 @@ Return ONLY valid JSON, no markdown or explanation.`,
         }
       }
     } else if (isPdf) {
-      // For PDFs, use filename + subject as context for matching (no vision)
-      extractedText = `PDF Document. Filename: ${fileUrl.split("/").pop()}. ${subject ? `Email subject: ${subject}` : ""}`;
+      // Extract text from PDF server-side
+      try {
+        const pdfRes = await fetch(fileUrl);
+        const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
+        const pdfData = await pdfParse(pdfBuffer);
+        const pdfText = pdfData.text?.trim() || "";
+
+        if (pdfText.length > 20) {
+          // Send extracted text to Claude for analysis
+          const analyzeRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": apiKey,
+              "anthropic-version": "2023-06-01",
+            },
+            body: JSON.stringify({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 2000,
+              messages: [{
+                role: "user",
+                content: `Analyze this document text and return a JSON object with:
+1. "name": A short, descriptive name for this document (e.g. "Home Depot Receipt - $849.99" or "Dishwasher Warranty - Expires 2028"). Max 60 characters.
+2. "extractedText": A clean summary of the key content.
+3. "details": An object with any key details found (store, amount, date, product, type, expiration, etc.)
+
+Here is the document text:
+
+${pdfText.slice(0, 3000)}
+
+Return ONLY valid JSON, no markdown or explanation.`,
+              }],
+            }),
+          });
+
+          if (analyzeRes.ok) {
+            const data = await analyzeRes.json();
+            const text = data.content?.[0]?.text || "";
+            try {
+              const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+              const parsed = JSON.parse(cleaned);
+              extractedText = parsed.extractedText || pdfText.slice(0, 2000);
+              smartName = parsed.name || null;
+            } catch {
+              extractedText = pdfText.slice(0, 2000);
+            }
+          } else {
+            extractedText = pdfText.slice(0, 2000);
+          }
+        } else {
+          extractedText = `PDF document. ${subject ? `Subject: ${subject}` : ""}`;
+        }
+      } catch (pdfErr) {
+        console.error("PDF parse error:", pdfErr);
+        extractedText = `PDF document. ${subject ? `Subject: ${subject}` : ""}`;
+      }
     }
 
     // Update the document with extracted text and smart name
@@ -124,8 +179,9 @@ And these properties and assets:
 ${JSON.stringify(orgContext, null, 2)}
 
 Which property and asset does this document most likely belong to?
-Return JSON: { "space_id": "...", "item_id": "...", "reason": "brief explanation of why this matches" }
-If no confident match, return: { "space_id": null, "item_id": null, "reason": "No clear match found" }
+Return JSON: { "space_id": "the matching space UUID", "item_id": "the matching item UUID", "reason": "brief explanation" }
+If you can identify the property but not a specific asset, return: { "space_id": "the space UUID", "item_id": null, "reason": "Matched to property but no specific asset identified" }
+If no match at all, return: { "space_id": null, "item_id": null, "reason": "No clear match found" }
 Return ONLY valid JSON, no markdown.`,
         }],
       }),
@@ -137,16 +193,12 @@ Return ONLY valid JSON, no markdown.`,
       try {
         const cleaned = matchText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
         const match = JSON.parse(cleaned);
-        if (match.space_id && match.item_id) {
-          await admin.from("inbox_documents").update({
-            suggested_space_id: match.space_id,
-            suggested_item_id: match.item_id,
-            suggested_match_reason: match.reason || null,
-          }).eq("id", docId);
-        } else if (match.reason) {
-          await admin.from("inbox_documents").update({
-            suggested_match_reason: match.reason,
-          }).eq("id", docId);
+        const matchUpdate: Record<string, unknown> = {};
+        if (match.space_id) matchUpdate.suggested_space_id = match.space_id;
+        if (match.item_id) matchUpdate.suggested_item_id = match.item_id;
+        if (match.reason) matchUpdate.suggested_match_reason = match.reason;
+        if (Object.keys(matchUpdate).length > 0) {
+          await admin.from("inbox_documents").update(matchUpdate).eq("id", docId);
         }
       } catch {
         console.error("Failed to parse match result:", matchText);

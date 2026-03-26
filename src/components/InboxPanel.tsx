@@ -65,11 +65,12 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
       // Pre-fill assignments from AI suggestions
       const newAssignments: Record<string, DocAssignment> = {};
       for (const doc of mapped) {
-        if (doc.suggestedSpaceId && doc.suggestedItemId) {
+        if (doc.suggestedSpaceId) {
+          // AI matched a property (and possibly an item)
           const items = await getItemsForSpace(doc.suggestedSpaceId);
           newAssignments[doc.id] = {
             spaceId: doc.suggestedSpaceId,
-            itemId: doc.suggestedItemId,
+            itemId: doc.suggestedItemId || "",
             items,
             loadingItems: false,
             name: doc.fileName,
@@ -184,7 +185,9 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
             {docs.map((doc) => {
               const a = getAssignment(doc);
               const isSaving = savingId === doc.id;
-              const hasAiSuggestion = !!(doc.suggestedSpaceId && doc.suggestedItemId);
+              const hasFullMatch = !!(doc.suggestedSpaceId && doc.suggestedItemId);
+              const hasPartialMatch = !!(doc.suggestedSpaceId && !doc.suggestedItemId);
+              const hasAiSuggestion = hasFullMatch || hasPartialMatch;
               const isAnalyzing = !doc.extractedText && !doc.suggestedMatchReason && doc.fileType.startsWith("image/");
 
               return (
