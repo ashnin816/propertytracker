@@ -190,8 +190,10 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
               const hasAiSuggestion = hasFullMatch || hasPartialMatch;
               const isAnalyzing = !doc.extractedText && !doc.suggestedMatchReason && (doc.fileType.startsWith("image/") || doc.fileType === "application/pdf");
               const aiProcessed = !!(doc.extractedText || doc.suggestedMatchReason);
-              // Name is AI-generated if AI processed and name doesn't end with a file extension
-              const aiNamed = aiProcessed && !/\.\w{2,5}$/.test(doc.fileName);
+              // Name is AI-generated if AI processed and name doesn't look like a raw filename
+              // Raw filenames end with common extensions like .pdf, .jpg, .png, .doc, etc.
+              const commonExtensions = /\.(pdf|jpg|jpeg|png|gif|doc|docx|xls|xlsx|csv|txt|heic|webp|bmp|tiff?)$/i;
+              const aiNamed = aiProcessed && !commonExtensions.test(doc.fileName);
               const noMatch = aiProcessed && !hasAiSuggestion;
 
               return (
