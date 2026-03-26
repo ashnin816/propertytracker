@@ -13,16 +13,21 @@ interface InboxPanelProps {
   onAssigned?: () => void;
 }
 
+interface DocAssignment {
+  spaceId: string;
+  itemId: string;
+  items: Item[];
+  loadingItems: boolean;
+  name: string;
+  editingName: boolean;
+}
+
 export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
   const { user } = useAuth();
   const [docs, setDocs] = useState<InboxDocument[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Per-doc assignment state: { [docId]: { spaceId, itemId, items, loadingItems } }
-  const [assignments, setAssignments] = useState<Record<string, { spaceId: string; itemId: string; items: Item[]; loadingItems: boolean }>>({});
+  const [assignments, setAssignments] = useState<Record<string, DocAssignment>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
-
-  // Preview & delete
   const [previewDoc, setPreviewDoc] = useState<InboxDocument | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -55,22 +60,41 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
     const res = await authFetch(`/api/inbox?org_id=${user.orgId}`);
     if (res.ok) {
       const data = await res.json();
-      setDocs(Array.isArray(data) ? data.map(mapDoc) : []);
+      const mapped = Array.isArray(data) ? data.map(mapDoc) : [];
+      setDocs(mapped);
+      // Pre-fill assignments from AI suggestions
+      const newAssignments: Record<string, DocAssignment> = {};
+      for (const doc of mapped) {
+        if (doc.suggestedSpaceId && doc.suggestedItemId) {
+          const items = await getItemsForSpace(doc.suggestedSpaceId);
+          newAssignments[doc.id] = {
+            spaceId: doc.suggestedSpaceId,
+            itemId: doc.suggestedItemId,
+            items,
+            loadingItems: false,
+            name: doc.fileName,
+            editingName: false,
+          };
+        } else {
+          newAssignments[doc.id] = { spaceId: "", itemId: "", items: [], loadingItems: false, name: doc.fileName, editingName: false };
+        }
+      }
+      setAssignments(newAssignments);
     }
     setLoading(false);
   }
 
-  function getAssignment(docId: string) {
-    return assignments[docId] || { spaceId: "", itemId: "", items: [], loadingItems: false };
+  function getAssignment(doc: InboxDocument): DocAssignment {
+    return assignments[doc.id] || { spaceId: "", itemId: "", items: [], loadingItems: false, name: doc.fileName, editingName: false };
   }
 
   async function handleSpaceChange(docId: string, spaceId: string) {
-    setAssignments((prev) => ({ ...prev, [docId]: { spaceId, itemId: "", items: [], loadingItems: true } }));
+    setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], spaceId, itemId: "", items: [], loadingItems: true } }));
     if (spaceId) {
       const items = await getItemsForSpace(spaceId);
       setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], items, loadingItems: false } }));
     } else {
-      setAssignments((prev) => ({ ...prev, [docId]: { spaceId: "", itemId: "", items: [], loadingItems: false } }));
+      setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], spaceId: "", itemId: "", items: [], loadingItems: false } }));
     }
   }
 
@@ -78,13 +102,22 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
     setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], itemId } }));
   }
 
-  async function handleAssign(docId: string, itemId: string) {
-    if (!itemId) return;
+  function handleNameChange(docId: string, name: string) {
+    setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], name } }));
+  }
+
+  function toggleEditName(docId: string) {
+    setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], editingName: !prev[docId]?.editingName } }));
+  }
+
+  async function handleAssign(docId: string) {
+    const a = getAssignment(docs.find((d) => d.id === docId)!);
+    if (!a.itemId) return;
     setSavingId(docId);
     await authFetch("/api/inbox", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ inboxDocId: docId, itemId }),
+      body: JSON.stringify({ inboxDocId: docId, itemId: a.itemId, name: a.name }),
     });
     setDocs((prev) => prev.filter((d) => d.id !== docId));
     setSavingId(null);
@@ -114,11 +147,9 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
       <div className="p-4 md:p-6 h-full overflow-y-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {docs.length} document{docs.length !== 1 ? "s" : ""} waiting to be assigned
-            </p>
-          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {docs.length} document{docs.length !== 1 ? "s" : ""} waiting to be assigned
+          </p>
           {user?.orgSlug && (
             <button onClick={() => { navigator.clipboard.writeText(`${user.orgSlug}@inbound.propertytrackerplus.com`); }}
               className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-xl text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer"
@@ -151,28 +182,83 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
         ) : (
           <div className="space-y-4">
             {docs.map((doc) => {
-              const a = getAssignment(doc.id);
+              const a = getAssignment(doc);
               const isSaving = savingId === doc.id;
+              const hasAiSuggestion = !!(doc.suggestedSpaceId && doc.suggestedItemId);
+              const isAnalyzing = !doc.extractedText && !doc.suggestedMatchReason && doc.fileType.startsWith("image/");
+
               return (
-                <div key={doc.id} className="bg-white dark:bg-[#1a2332] rounded-2xl border border-gray-200/60 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-                  {/* Top row: file info + delete */}
+                <div key={doc.id} className={`bg-white dark:bg-[#1a2332] rounded-2xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow ${
+                  hasAiSuggestion ? "border-blue-200 dark:border-blue-800" : "border-gray-200/60 dark:border-gray-800"
+                }`}>
+                  {/* AI badge */}
+                  {hasAiSuggestion && (
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 px-4 py-2 flex items-center gap-2 border-b border-blue-100 dark:border-blue-800/50">
+                      <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                      <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">AI Analyzed</span>
+                      {doc.suggestedMatchReason && (
+                        <span className="text-xs text-blue-600/70 dark:text-blue-400/70">— {doc.suggestedMatchReason}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Analyzing shimmer */}
+                  {isAnalyzing && (
+                    <div className="px-4 py-2 flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-white/[0.02]">
+                      <div className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs font-medium text-violet-600 dark:text-violet-400">AI is analyzing this document...</span>
+                    </div>
+                  )}
+
+                  {/* No match message */}
+                  {doc.suggestedMatchReason && !hasAiSuggestion && !isAnalyzing && (
+                    <div className="px-4 py-2 flex items-center gap-2 border-b border-gray-100 dark:border-gray-800">
+                      <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{doc.suggestedMatchReason}</span>
+                    </div>
+                  )}
+
+                  {/* Document info */}
                   <div className="flex items-start gap-3 p-4 pb-3">
-                    {/* Clickable thumbnail for preview */}
                     <button onClick={() => setPreviewDoc(doc)}
                       className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
                       <DocTypeIcon fileType={doc.fileType} fileName={doc.fileName} className="w-6 h-6 text-gray-500" />
                     </button>
                     <div className="min-w-0 flex-1">
-                      <button onClick={() => setPreviewDoc(doc)} className="text-sm font-semibold dark:text-white truncate block text-left cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                        {doc.fileName}
-                      </button>
+                      {/* Editable name */}
+                      {a.editingName ? (
+                        <div className="flex items-center gap-2">
+                          <input type="text" value={a.name} onChange={(e) => handleNameChange(doc.id, e.target.value)}
+                            onBlur={() => toggleEditName(doc.id)}
+                            onKeyDown={(e) => { if (e.key === "Enter") toggleEditName(doc.id); }}
+                            autoFocus
+                            className="text-sm font-semibold dark:text-white bg-transparent border-b-2 border-blue-500 outline-none flex-1 py-0.5" />
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 group">
+                          <button onClick={() => setPreviewDoc(doc)}
+                            className="text-sm font-semibold dark:text-white truncate text-left cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                            {a.name}
+                          </button>
+                          <button onClick={() => toggleEditName(doc.id)}
+                            className="p-0.5 text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            title="Edit name">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
                       <p className="text-xs text-gray-400 mt-0.5">
                         {doc.senderName || doc.senderEmail} · {timeAgo(doc.createdAt)}
-                        {doc.subject && <span className="ml-1">· {doc.subject}</span>}
+                        {doc.subject && <span> · {doc.subject}</span>}
                       </p>
                     </div>
-                    <button onClick={() => setDeleteId(doc.id)}
-                      title="Delete"
+                    <button onClick={() => setDeleteId(doc.id)} title="Delete"
                       className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors cursor-pointer flex-shrink-0">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -180,34 +266,17 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
                     </button>
                   </div>
 
-                  {/* AI suggestion */}
-                  {doc.suggestedSpaceName && doc.suggestedItemName && (
-                    <div className="px-4 pb-3">
-                      <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 rounded-xl px-3 py-2.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                          </svg>
-                          <p className="text-xs text-blue-700 dark:text-blue-300 truncate">
-                            <span className="font-semibold">AI:</span> {doc.suggestedSpaceName} → {doc.suggestedItemName}
-                          </p>
-                        </div>
-                        <button onClick={() => handleAssign(doc.id, doc.suggestedItemId!)}
-                          disabled={isSaving}
-                          className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors cursor-pointer flex-shrink-0 ml-2 disabled:opacity-50">
-                          {isSaving ? "..." : "Accept"}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Assignment controls — always visible */}
+                  {/* Assignment controls */}
                   <div className="px-4 pb-4">
                     <div className="flex flex-wrap items-end gap-2">
                       <div className="flex-1 min-w-[140px]">
                         <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Property</label>
                         <select value={a.spaceId} onChange={(e) => handleSpaceChange(doc.id, e.target.value)}
-                          className="w-full appearance-none bg-gray-50 dark:bg-[#0c1222] border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:text-gray-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow">
+                          className={`w-full appearance-none border rounded-lg px-3 py-2 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow ${
+                            hasAiSuggestion && a.spaceId === doc.suggestedSpaceId
+                              ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 text-blue-900 dark:text-blue-200"
+                              : "bg-gray-50 dark:bg-[#0c1222] border-gray-200 dark:border-gray-700 dark:text-gray-200"
+                          }`}>
                           <option value="">Select property...</option>
                           {spaces.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
@@ -222,15 +291,19 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
                         ) : (
                           <select value={a.itemId} onChange={(e) => handleItemChange(doc.id, e.target.value)}
                             disabled={!a.spaceId || a.items.length === 0}
-                            className="w-full appearance-none bg-gray-50 dark:bg-[#0c1222] border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:text-gray-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-40 transition-shadow">
+                            className={`w-full appearance-none border rounded-lg px-3 py-2 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-40 transition-shadow ${
+                              hasAiSuggestion && a.itemId === doc.suggestedItemId
+                                ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 text-blue-900 dark:text-blue-200"
+                                : "bg-gray-50 dark:bg-[#0c1222] border-gray-200 dark:border-gray-700 dark:text-gray-200"
+                            }`}>
                             <option value="">{!a.spaceId ? "Select property first" : a.items.length === 0 ? "No assets" : "Select asset..."}</option>
                             {a.items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                           </select>
                         )}
                       </div>
-                      <button onClick={() => handleAssign(doc.id, a.itemId)}
+                      <button onClick={() => handleAssign(doc.id)}
                         disabled={!a.itemId || isSaving}
-                        className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm shadow-blue-500/20">
+                        className="px-6 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm shadow-blue-500/20">
                         {isSaving ? "Assigning..." : "Assign"}
                       </button>
                     </div>

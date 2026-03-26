@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -9,6 +9,154 @@ function getAdminClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+}
+
+// AI: Analyze document and suggest property/asset match
+async function processWithAI(admin: SupabaseClient, docId: string, fileUrl: string, fileType: string, orgId: string, subject: string | null) {
+  const apiKey = process.env.CLAUDE_API_KEY;
+  if (!apiKey) return;
+
+  const isImage = fileType.startsWith("image/");
+  const isPdf = fileType === "application/pdf";
+
+  // Only analyze images for now (PDFs need server-side text extraction)
+  if (!isImage && !isPdf) return;
+
+  try {
+    let extractedText = "";
+    let smartName: string | null = null;
+
+    if (isImage) {
+      // Step 1: Download image and send to Claude for analysis
+      const imgRes = await fetch(fileUrl);
+      const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+      const base64 = imgBuffer.toString("base64");
+
+      const analyzeRes = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 2000,
+          messages: [{
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: { type: "base64", media_type: fileType, data: base64 },
+              },
+              {
+                type: "text",
+                text: `Analyze this document image. Return a JSON object with:
+1. "name": A short, descriptive name for this document (e.g. "Home Depot Receipt - $849.99" or "Dishwasher Warranty - Expires 2028"). Max 60 characters.
+2. "extractedText": All readable text from the document.
+3. "details": An object with any key details found (store, amount, date, product, type, expiration, etc.)
+
+Return ONLY valid JSON, no markdown or explanation.`,
+              },
+            ],
+          }],
+        }),
+      });
+
+      if (analyzeRes.ok) {
+        const data = await analyzeRes.json();
+        const text = data.content?.[0]?.text || "";
+        try {
+          const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+          const parsed = JSON.parse(cleaned);
+          extractedText = parsed.extractedText || "";
+          smartName = parsed.name || null;
+        } catch {
+          extractedText = text;
+        }
+      }
+    } else if (isPdf) {
+      // For PDFs, use filename + subject as context for matching (no vision)
+      extractedText = `PDF Document. Filename: ${fileUrl.split("/").pop()}. ${subject ? `Email subject: ${subject}` : ""}`;
+    }
+
+    // Update the document with extracted text and smart name
+    const updates: Record<string, unknown> = { extracted_text: extractedText || null };
+    if (smartName) updates.file_name = smartName;
+    await admin.from("inbox_documents").update(updates).eq("id", docId);
+
+    // Step 2: Match to property/asset
+    const { data: spaces } = await admin.from("spaces").select("id, name").eq("org_id", orgId);
+    if (!spaces || spaces.length === 0) return;
+
+    const spaceIds = spaces.map((s: { id: string }) => s.id);
+    const { data: items } = await admin.from("items").select("id, name, space_id").in("space_id", spaceIds);
+
+    // Build context for Claude
+    const orgContext = spaces.map((s: { id: string; name: string }) => ({
+      spaceId: s.id,
+      spaceName: s.name,
+      items: (items || []).filter((i: { space_id: string }) => i.space_id === s.id).map((i: { id: string; name: string }) => ({
+        itemId: i.id,
+        itemName: i.name,
+      })),
+    }));
+
+    const matchContext = extractedText || smartName || subject || "Unknown document";
+
+    const matchRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 500,
+        messages: [{
+          role: "user",
+          content: `Given this document:
+- Name: "${smartName || "Unknown"}"
+- Content: "${matchContext.slice(0, 1000)}"
+
+And these properties and assets:
+${JSON.stringify(orgContext, null, 2)}
+
+Which property and asset does this document most likely belong to?
+Return JSON: { "space_id": "...", "item_id": "...", "reason": "brief explanation of why this matches" }
+If no confident match, return: { "space_id": null, "item_id": null, "reason": "No clear match found" }
+Return ONLY valid JSON, no markdown.`,
+        }],
+      }),
+    });
+
+    if (matchRes.ok) {
+      const matchData = await matchRes.json();
+      const matchText = matchData.content?.[0]?.text || "";
+      try {
+        const cleaned = matchText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        const match = JSON.parse(cleaned);
+        if (match.space_id && match.item_id) {
+          await admin.from("inbox_documents").update({
+            suggested_space_id: match.space_id,
+            suggested_item_id: match.item_id,
+            suggested_match_reason: match.reason || null,
+          }).eq("id", docId);
+        } else if (match.reason) {
+          await admin.from("inbox_documents").update({
+            suggested_match_reason: match.reason,
+          }).eq("id", docId);
+        }
+      } catch {
+        console.error("Failed to parse match result:", matchText);
+      }
+    }
+
+    console.log("AI processing complete for doc:", docId);
+  } catch (err) {
+    console.error("AI processing error:", err);
+  }
 }
 
 // POST — receive parsed email from SendGrid Inbound Parse
@@ -45,7 +193,6 @@ export async function POST(req: NextRequest) {
     let orgId: string | null = null;
 
     if (toSlug) {
-      // Look up org by slug
       const { data: org } = await admin.from("organizations")
         .select("id")
         .eq("slug", toSlug)
@@ -53,7 +200,7 @@ export async function POST(req: NextRequest) {
       if (org) orgId = org.id;
     }
 
-    // Fallback: look up org by sender email (for backwards compatibility)
+    // Fallback: look up org by sender email
     if (!orgId) {
       const { data: profile } = await admin.from("profiles")
         .select("org_id, status")
@@ -69,9 +216,10 @@ export async function POST(req: NextRequest) {
       console.log("No org found for to:", toEmail, "from:", senderEmail);
       return NextResponse.json({ error: "Unknown recipient" }, { status: 403 });
     }
-    let processed = 0;
 
-    // SendGrid sends attachments as attachment1, attachment2, etc.
+    let processed = 0;
+    const aiPromises: Promise<void>[] = [];
+
     for (let i = 1; i <= numAttachments; i++) {
       const file = formData.get(`attachment${i}`) as File | null;
       if (!file) continue;
@@ -79,30 +227,19 @@ export async function POST(req: NextRequest) {
       const filename = file.name || `attachment${i}`;
       const contentType = file.type || "application/octet-stream";
 
-      // Skip files over 20MB
       if (file.size > 20 * 1024 * 1024) continue;
 
-      // Skip inline images (signatures, logos, tracking pixels)
+      // Skip inline images
       const lowerName = filename.toLowerCase();
       const isLikelyInline =
-        // Small images with generic/auto-generated names
         (contentType.startsWith("image/") && file.size < 100000 && (
-          lowerName.startsWith("image") ||
-          lowerName.startsWith("img-") ||
-          lowerName.startsWith("img_") ||
-          lowerName.includes("logo") ||
-          lowerName.includes("signature") ||
-          lowerName.includes("banner") ||
-          lowerName.includes("icon") ||
-          !lowerName.includes(".")  // no file extension = likely inline
+          lowerName.startsWith("image") || lowerName.startsWith("img-") || lowerName.startsWith("img_") ||
+          lowerName.includes("logo") || lowerName.includes("signature") || lowerName.includes("banner") ||
+          lowerName.includes("icon") || !lowerName.includes(".")
         )) ||
-        // Tracking pixels
         (contentType.startsWith("image/") && file.size < 5000) ||
-        // Generic octet-stream with image-like auto-generated names
         (contentType === "application/octet-stream" && file.size < 100000 && (
-          lowerName.startsWith("img-") ||
-          lowerName.startsWith("img_") ||
-          lowerName.startsWith("image")
+          lowerName.startsWith("img-") || lowerName.startsWith("img_") || lowerName.startsWith("image")
         ));
       if (isLikelyInline) continue;
 
@@ -122,7 +259,7 @@ export async function POST(req: NextRequest) {
       const { data: urlData } = admin.storage.from("documents").getPublicUrl(storagePath);
       const fileUrl = urlData.publicUrl;
 
-      const { error: insertError } = await admin.from("inbox_documents").insert({
+      const { data: insertedDoc, error: insertError } = await admin.from("inbox_documents").insert({
         org_id: orgId,
         sender_email: senderEmail,
         sender_name: senderName,
@@ -131,14 +268,21 @@ export async function POST(req: NextRequest) {
         file_url: fileUrl,
         file_type: contentType,
         status: "pending",
-      });
+      }).select("id").single();
 
-      if (insertError) {
+      if (insertError || !insertedDoc) {
         console.error("Insert error:", insertError);
         continue;
       }
 
+      // Queue AI processing
+      aiPromises.push(processWithAI(admin, insertedDoc.id, fileUrl, contentType, orgId, subject));
       processed++;
+    }
+
+    // Wait for AI processing (within maxDuration limit)
+    if (aiPromises.length > 0) {
+      await Promise.all(aiPromises);
     }
 
     console.log("Processed", processed, "attachments for org:", orgId);

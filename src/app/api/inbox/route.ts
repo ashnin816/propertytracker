@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
   if (!isAdmin && !isManager) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {
-    const { inboxDocId, itemId } = await req.json();
+    const { inboxDocId, itemId, name } = await req.json();
     if (!inboxDocId || !itemId) return NextResponse.json({ error: "inboxDocId and itemId required" }, { status: 400 });
 
     const admin = getAdminClient();
@@ -108,10 +108,10 @@ export async function POST(req: NextRequest) {
     // Verify caller belongs to same org
     if (!isAdmin && caller.org_id !== inbox.org_id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // Insert into documents table
+    // Insert into documents table (use custom name if provided)
     const { error: insertErr } = await admin.from("documents").insert({
       item_id: itemId,
-      name: inbox.file_name,
+      name: name || inbox.file_name,
       file_url: inbox.file_url,
       file_type: inbox.file_type,
       extracted_text: inbox.extracted_text || null,
