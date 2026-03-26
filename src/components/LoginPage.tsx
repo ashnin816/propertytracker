@@ -44,7 +44,7 @@ export default function LoginPage() {
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Email</label>
               <input
                 type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com" required autoFocus
+                placeholder="you@company.com" required autoFocus autoComplete="email"
                 className="w-full border border-gray-300 dark:border-gray-600 dark:bg-[#0c1222] dark:text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent no-min-size"
               />
             </div>
@@ -52,7 +52,7 @@ export default function LoginPage() {
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Password</label>
               <input
                 type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••" required
+                placeholder="••••••••" required autoComplete="current-password"
                 className="w-full border border-gray-300 dark:border-gray-600 dark:bg-[#0c1222] dark:text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent no-min-size"
               />
             </div>
