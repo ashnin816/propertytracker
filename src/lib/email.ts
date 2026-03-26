@@ -32,7 +32,7 @@ function baseTemplate(content: string, accentColor = "#2563eb") {
 
     <!-- Footer -->
     <div style="padding:24px 40px;background:#fafafa;border-top:1px solid #f0f0f0;text-align:center;">
-      <p style="color:#aaa;font-size:11px;margin:0 0 4px;letter-spacing:0.3px;text-transform:uppercase;">PropertyTracker+</p>
+      <p style="color:#aaa;font-size:11px;margin:0 0 4px;letter-spacing:0.3px;">PropertyTracker+</p>
       <p style="color:#bbb;font-size:11px;margin:0;">AI-powered property document management</p>
     </div>
   </div>
@@ -120,7 +120,7 @@ export async function sendDeactivatedEmail(to: string, name: string) {
           If you believe this is a mistake, please reach out to your organization admin to have your access restored.
         </p>
       </div>
-    `, "#ef4444"),
+    `),
   });
 }
 
@@ -134,7 +134,7 @@ export async function sendReactivatedEmail(to: string, name: string) {
       <p style="color:#555;font-size:15px;line-height:1.7;margin:0;">
         Great news &mdash; your PropertyTracker+ account has been reactivated. You can sign in again with your existing credentials.
       </p>
-      ${button(APP_URL, "Sign In to PropertyTracker+", "#16a34a")}
-    `, "#16a34a"),
+      ${button(APP_URL, "Sign In to PropertyTracker+")}
+    `),
   });
 }
