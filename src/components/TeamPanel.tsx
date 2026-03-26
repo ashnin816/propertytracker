@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "./AuthProvider";
-import { Space } from "@/lib/types";
+import { Space, Unit } from "@/lib/types";
+import { getUnitsForSpace } from "@/lib/supabase-storage";
 
 interface TeamMember {
   id: string;
@@ -65,6 +66,13 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [savingAssignment, setSavingAssignment] = useState<string | null>(null);
 
+  // Tenant-specific assignment
+  const [tenantSpaceId, setTenantSpaceId] = useState<string>("");
+  const [tenantUnitId, setTenantUnitId] = useState<string>("");
+  const [tenantUnits, setTenantUnits] = useState<Unit[]>([]);
+  const [loadingUnits, setLoadingUnits] = useState(false);
+  const [savingTenant, setSavingTenant] = useState(false);
+
   useEffect(() => {
     if (user?.orgId) loadMembers();
   }, [user?.orgId]);
@@ -121,6 +129,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
 
   async function handleExpandMember(memberId: string) {
     if (expandedMember === memberId) { setExpandedMember(null); return; }
+    const member = members.find((m) => m.id === memberId);
     setExpandedMember(memberId);
     setLoadingAssignments(true);
     const res = await fetch("/api/users", {
@@ -129,9 +138,25 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
       body: JSON.stringify({ action: "get_assignments", userId: memberId }),
     });
     const data = await res.json();
-    const map: Record<string, boolean> = {};
-    if (Array.isArray(data)) { for (const a of data) map[a.space_id] = true; }
-    setMemberAssignments(map);
+
+    if (member?.role === "tenant") {
+      // Tenant: load current assignment (single property + unit)
+      const assignment = Array.isArray(data) && data.length > 0 ? data[0] : null;
+      const spId = assignment?.space_id || "";
+      const unId = assignment?.unit_id || "";
+      setTenantSpaceId(spId);
+      setTenantUnitId(unId);
+      setTenantUnits([]);
+      if (spId) {
+        const units = await getUnitsForSpace(spId);
+        setTenantUnits(units);
+      }
+    } else {
+      // Manager/technician: property checkboxes
+      const map: Record<string, boolean> = {};
+      if (Array.isArray(data)) { for (const a of data) map[a.space_id] = true; }
+      setMemberAssignments(map);
+    }
     setLoadingAssignments(false);
   }
 
@@ -144,6 +169,46 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     });
     setMemberAssignments((prev) => ({ ...prev, [spaceId]: !assigned }));
     setSavingAssignment(null);
+  }
+
+  async function handleTenantSpaceChange(memberId: string, spaceId: string) {
+    setTenantSpaceId(spaceId);
+    setTenantUnitId("");
+    setTenantUnits([]);
+    if (spaceId) {
+      setLoadingUnits(true);
+      const units = await getUnitsForSpace(spaceId);
+      setTenantUnits(units);
+      setLoadingUnits(false);
+    }
+  }
+
+  async function handleSaveTenantAssignment(memberId: string) {
+    if (!tenantSpaceId || !tenantUnitId) return;
+    setSavingTenant(true);
+    // Remove any existing assignments first
+    const res = await fetch("/api/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "get_assignments", userId: memberId }),
+    });
+    const existing = await res.json();
+    if (Array.isArray(existing)) {
+      for (const a of existing) {
+        await fetch("/api/users", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "unassign", userId: memberId, spaceId: a.space_id, unitId: a.unit_id }),
+        });
+      }
+    }
+    // Assign new
+    await fetch("/api/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "assign", userId: memberId, spaceId: tenantSpaceId, unitId: tenantUnitId }),
+    });
+    setSavingTenant(false);
   }
 
   function formatDate(dateStr: string) {
@@ -331,41 +396,89 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                   isExpanded && (
                     <tr key={`${m.id}-expand`} className="bg-gray-50/50 dark:bg-white/[0.02] border-b border-gray-100 dark:border-gray-800">
                       <td colSpan={5} className="px-4 pb-3 pt-2">
-                        <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Property Access</p>
                         {loadingAssignments ? (
                           <div className="flex items-center gap-2 py-1">
                             <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
                             <span className="text-xs text-gray-400">Loading...</span>
                           </div>
-                        ) : spaces.length === 0 ? (
-                          <p className="text-xs text-gray-400">No properties yet</p>
-                        ) : (
-                          <div className="flex flex-wrap gap-2">
-                            {spaces.map((space) => {
-                              const assigned = memberAssignments[space.id] || false;
-                              const saving = savingAssignment === space.id;
-                              return (
-                                <button key={space.id}
-                                  onClick={() => handleToggleAssignment(m.id, space.id, assigned)}
-                                  disabled={saving}
-                                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                                    assigned
-                                      ? "bg-blue-600 text-white hover:bg-blue-700"
-                                      : "bg-white dark:bg-[#1a2332] border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-600"
-                                  } ${saving ? "opacity-50" : ""}`}>
-                                  {space.name}
-                                  {assigned && (
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                    </svg>
+                        ) : m.role === "tenant" ? (
+                          /* Tenant: property + unit dropdowns */
+                          <div>
+                            <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Unit Assignment</p>
+                            {spaces.length === 0 ? (
+                              <p className="text-xs text-gray-400">No properties yet</p>
+                            ) : (
+                              <div className="flex flex-wrap items-end gap-3">
+                                <div>
+                                  <label className="block text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Property</label>
+                                  <select value={tenantSpaceId} onChange={(e) => handleTenantSpaceChange(m.id, e.target.value)}
+                                    className="appearance-none bg-white dark:bg-[#0c1222] border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:text-gray-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]">
+                                    <option value="">Select property...</option>
+                                    {spaces.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Unit</label>
+                                  {!tenantSpaceId ? (
+                                    <p className="text-xs text-gray-400 py-2">Select a property first</p>
+                                  ) : loadingUnits ? (
+                                    <div className="flex items-center gap-2 py-2">
+                                      <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                      <span className="text-xs text-gray-400">Loading units...</span>
+                                    </div>
+                                  ) : tenantUnits.length === 0 ? (
+                                    <p className="text-xs text-amber-600 dark:text-amber-400 py-2">No units available — add units to this property first</p>
+                                  ) : (
+                                    <select value={tenantUnitId} onChange={(e) => setTenantUnitId(e.target.value)}
+                                      className="appearance-none bg-white dark:bg-[#0c1222] border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:text-gray-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]">
+                                      <option value="">Select unit...</option>
+                                      {tenantUnits.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                    </select>
                                   )}
+                                </div>
+                                <button onClick={() => handleSaveTenantAssignment(m.id)}
+                                  disabled={!tenantSpaceId || !tenantUnitId || savingTenant}
+                                  className="px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                                  {savingTenant ? "Saving..." : "Save"}
                                 </button>
-                              );
-                            })}
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {!loadingAssignments && Object.values(memberAssignments).filter(Boolean).length === 0 && spaces.length > 0 && (
-                          <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-2">No properties assigned — this user won&apos;t see any data</p>
+                        ) : (
+                          /* Manager/Technician: property checkboxes */
+                          <div>
+                            <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Property Access</p>
+                            {spaces.length === 0 ? (
+                              <p className="text-xs text-gray-400">No properties yet</p>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {spaces.map((space) => {
+                                  const assigned = memberAssignments[space.id] || false;
+                                  const saving = savingAssignment === space.id;
+                                  return (
+                                    <button key={space.id}
+                                      onClick={() => handleToggleAssignment(m.id, space.id, assigned)}
+                                      disabled={saving}
+                                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                                        assigned
+                                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                                          : "bg-white dark:bg-[#1a2332] border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-600"
+                                      } ${saving ? "opacity-50" : ""}`}>
+                                      {space.name}
+                                      {assigned && (
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {Object.values(memberAssignments).filter(Boolean).length === 0 && spaces.length > 0 && (
+                              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-2">No properties assigned — this user won&apos;t see any data</p>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>
