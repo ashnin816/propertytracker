@@ -283,24 +283,37 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
                         <div className="px-3 py-2 bg-gray-50/50 dark:bg-white/[0.02] space-y-1.5">
                           {aiNamed && (
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase w-14 flex-shrink-0">Name</span>
-                              <span className="text-[11px] text-gray-600 dark:text-gray-300">{doc.fileName}</span>
-                              <span className="text-[9px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30 px-1.5 py-0.5 rounded-full">AI</span>
+                              <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase w-16 flex-shrink-0">Name</span>
+                              <span className="text-[11px] text-gray-600 dark:text-gray-300 truncate">{doc.fileName}</span>
+                              <span className="text-[9px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30 px-1.5 py-0.5 rounded-full flex-shrink-0">AI</span>
                             </div>
                           )}
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase w-16 flex-shrink-0">Property</span>
+                            {doc.suggestedSpaceName ? (
+                              <>
+                                <span className="text-[11px] text-gray-600 dark:text-gray-300">{doc.suggestedSpaceName}</span>
+                                <span className="text-[9px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full flex-shrink-0">AI</span>
+                              </>
+                            ) : (
+                              <span className="text-[11px] text-gray-400 dark:text-gray-500 italic">Not identified</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase w-16 flex-shrink-0">Asset</span>
+                            {doc.suggestedItemName ? (
+                              <>
+                                <span className="text-[11px] text-gray-600 dark:text-gray-300">{doc.suggestedItemName}</span>
+                                <span className="text-[9px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full flex-shrink-0">AI</span>
+                              </>
+                            ) : (
+                              <span className="text-[11px] text-gray-400 dark:text-gray-500 italic">Not identified</span>
+                            )}
+                          </div>
                           {doc.suggestedMatchReason && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase w-14 flex-shrink-0 pt-px">Match</span>
-                              <span className="text-[11px] text-gray-500 dark:text-gray-400">{doc.suggestedMatchReason}</span>
-                            </div>
-                          )}
-                          {doc.suggestedSpaceName && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase w-14 flex-shrink-0">Filed</span>
-                              <span className="text-[11px] text-gray-600 dark:text-gray-300">
-                                {doc.suggestedSpaceName}{doc.suggestedItemName ? ` → ${doc.suggestedItemName}` : ""}
-                              </span>
-                              <span className="text-[9px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">AI</span>
+                            <div className="flex items-start gap-2 pt-1 border-t border-gray-100 dark:border-gray-800 mt-1">
+                              <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase w-16 flex-shrink-0 pt-px">Reason</span>
+                              <span className="text-[11px] text-gray-400 dark:text-gray-500">{doc.suggestedMatchReason}</span>
                             </div>
                           )}
                         </div>
