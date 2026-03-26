@@ -1,0 +1,7 @@
+{
+  "name": "email-inbound",
+  "private": true,
+  "dependencies": {
+    "postal-mime": "^2.7.4"
+  }
+}

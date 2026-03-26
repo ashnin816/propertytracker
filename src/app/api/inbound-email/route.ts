@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import PostalMime from "postal-mime";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -11,7 +12,7 @@ function getAdminClient() {
   );
 }
 
-// POST — receive parsed email from Cloudflare Worker
+// POST — receive raw email from Cloudflare Worker
 export async function POST(req: NextRequest) {
   // Verify shared secret
   const secret = req.headers.get("x-inbound-secret");
@@ -20,10 +21,25 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { from, subject, attachments } = await req.json();
+    const body = await req.json();
+    const { from, rawEmail } = body;
 
-    if (!from || !attachments || !Array.isArray(attachments) || attachments.length === 0) {
-      return NextResponse.json({ error: "No attachments" }, { status: 400 });
+    if (!from || !rawEmail) {
+      return NextResponse.json({ error: "Missing from or rawEmail" }, { status: 400 });
+    }
+
+    // Parse the raw email server-side
+    const rawBuffer = Buffer.from(rawEmail, "base64");
+    const parser = new PostalMime();
+    const parsed = await parser.parse(rawBuffer);
+
+    // Filter attachments — skip inline images (signatures, logos)
+    const attachments = (parsed.attachments || []).filter(
+      (att) => att.content && att.filename && att.disposition !== "inline"
+    );
+
+    if (attachments.length === 0) {
+      return NextResponse.json({ success: true, count: 0, note: "No attachments" });
     }
 
     const admin = getAdminClient();
@@ -48,23 +64,24 @@ export async function POST(req: NextRequest) {
     }
 
     const orgId = profile.org_id;
+    const subject = parsed.subject || body.subject || null;
     let processed = 0;
 
     for (const attachment of attachments) {
-      const { filename, content, contentType, size } = attachment;
+      const { filename, content, mimeType } = attachment;
       if (!content || !filename) continue;
 
-      // Skip files over 20MB
-      if (size && size > 20 * 1024 * 1024) continue;
-
-      // Upload to Supabase Storage
-      const fileBuffer = Buffer.from(content, "base64");
+      const contentType = mimeType || "application/octet-stream";
+      const fileBuffer = Buffer.from(new Uint8Array(content as ArrayBuffer));
       const ext = filename.split(".").pop() || "bin";
       const storagePath = `inbox/${orgId}/${crypto.randomUUID()}.${ext}`;
 
+      // Skip files over 20MB
+      if (fileBuffer.byteLength > 20 * 1024 * 1024) continue;
+
       const { error: uploadError } = await admin.storage
         .from("documents")
-        .upload(storagePath, fileBuffer, { contentType: contentType || "application/octet-stream" });
+        .upload(storagePath, fileBuffer, { contentType });
 
       if (uploadError) {
         console.error("Upload error:", uploadError);
@@ -74,15 +91,14 @@ export async function POST(req: NextRequest) {
       const { data: urlData } = admin.storage.from("documents").getPublicUrl(storagePath);
       const fileUrl = urlData.publicUrl;
 
-      // Insert inbox document
       const { error: insertError } = await admin.from("inbox_documents").insert({
         org_id: orgId,
         sender_email: senderEmail,
         sender_name: senderName,
-        subject: subject || null,
+        subject,
         file_name: filename,
         file_url: fileUrl,
-        file_type: contentType || "application/octet-stream",
+        file_type: contentType,
         status: "pending",
       });
 
