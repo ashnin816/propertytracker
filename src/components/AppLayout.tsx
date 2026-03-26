@@ -39,6 +39,7 @@ import AskAI from "./AskAI";
 import { useAuth } from "./AuthProvider";
 import TeamPanel from "./TeamPanel";
 import InboxPanel from "./InboxPanel";
+import InsightsPanel from "./InsightsPanel";
 import RenameModal from "./RenameModal";
 import BulkUnitsModal from "./BulkUnitsModal";
 
@@ -997,7 +998,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
 
             {/* Context title */}
             <div className="min-w-0">
-              {view === "home" && <h1 className="text-base font-semibold dark:text-white">Dashboard</h1>}
+              {view === "home" && <h1 className="text-base font-semibold dark:text-white">{(canAddProperties || canEditStructure) && spaces.length > 0 ? "Insights" : "Dashboard"}</h1>}
               {view === "team" && <h1 className="text-base font-semibold dark:text-white">Team</h1>}
               {view === "inbox" && <h1 className="text-base font-semibold dark:text-white">Inbox</h1>}
               {(view === "space" || view === "units") && selectedSpace && spaceIcon && (
@@ -1233,7 +1234,10 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
           <div className={`transition-opacity duration-200 ${transitioning || initialLoad ? "opacity-0" : "opacity-100"}`}>
 
           {/* HOME VIEW */}
-          {view === "home" && (
+          {view === "home" && (canAddProperties || canEditStructure) && spaces.length > 0 && (
+            <InsightsPanel />
+          )}
+          {view === "home" && (!canAddProperties && !canEditStructure || spaces.length === 0) && (
             <div className="flex-1 flex items-center justify-center px-4">
               {spaces.length === 0 ? (
                 authUser?.assignments !== undefined ? (
