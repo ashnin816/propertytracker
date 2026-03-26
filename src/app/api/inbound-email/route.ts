@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import PostalMime from "postal-mime";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -12,33 +11,22 @@ function getAdminClient() {
   );
 }
 
-// POST — receive raw email from Cloudflare Worker
+// POST — receive parsed email from SendGrid Inbound Parse
 export async function POST(req: NextRequest) {
-  // Verify shared secret
-  const secret = req.headers.get("x-inbound-secret");
-  if (!secret || secret !== process.env.INBOUND_EMAIL_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const body = await req.json();
-    const { from, rawEmail } = body;
+    const formData = await req.formData();
 
-    if (!from || !rawEmail) {
-      return NextResponse.json({ error: "Missing from or rawEmail" }, { status: 400 });
+    const from = formData.get("from") as string;
+    const subject = formData.get("subject") as string;
+    const numAttachments = parseInt(formData.get("attachments") as string || "0", 10);
+
+    console.log("Inbound email from:", from, "subject:", subject, "attachments:", numAttachments);
+
+    if (!from) {
+      return NextResponse.json({ error: "No sender" }, { status: 400 });
     }
 
-    // Parse the raw email server-side
-    const rawBuffer = Buffer.from(rawEmail, "base64");
-    const parser = new PostalMime();
-    const parsed = await parser.parse(rawBuffer);
-
-    // Filter attachments — skip inline images (signatures, logos)
-    const attachments = (parsed.attachments || []).filter(
-      (att) => att.content && att.filename && att.disposition !== "inline"
-    );
-
-    if (attachments.length === 0) {
+    if (numAttachments === 0) {
       return NextResponse.json({ success: true, count: 0, note: "No attachments" });
     }
 
@@ -56,6 +44,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (!profile || !profile.org_id) {
+      console.log("Unknown sender:", senderEmail);
       return NextResponse.json({ error: "Unknown sender" }, { status: 403 });
     }
 
@@ -64,20 +53,27 @@ export async function POST(req: NextRequest) {
     }
 
     const orgId = profile.org_id;
-    const subject = parsed.subject || body.subject || null;
     let processed = 0;
 
-    for (const attachment of attachments) {
-      const { filename, content, mimeType } = attachment;
-      if (!content || !filename) continue;
+    // SendGrid sends attachments as attachment1, attachment2, etc.
+    for (let i = 1; i <= numAttachments; i++) {
+      const file = formData.get(`attachment${i}`) as File | null;
+      if (!file) continue;
 
-      const contentType = mimeType || "application/octet-stream";
-      const fileBuffer = Buffer.from(new Uint8Array(content as ArrayBuffer));
-      const ext = filename.split(".").pop() || "bin";
-      const storagePath = `inbox/${orgId}/${crypto.randomUUID()}.${ext}`;
+      const filename = file.name || `attachment${i}`;
+      const contentType = file.type || "application/octet-stream";
 
       // Skip files over 20MB
-      if (fileBuffer.byteLength > 20 * 1024 * 1024) continue;
+      if (file.size > 20 * 1024 * 1024) continue;
+
+      // Skip inline images (signatures, logos) — small images with generic names
+      const isLikelyInline = contentType.startsWith("image/") && file.size < 50000 &&
+        (filename.startsWith("image") || filename.includes("logo") || filename.includes("signature"));
+      if (isLikelyInline) continue;
+
+      const fileBuffer = Buffer.from(await file.arrayBuffer());
+      const ext = filename.split(".").pop() || "bin";
+      const storagePath = `inbox/${orgId}/${crypto.randomUUID()}.${ext}`;
 
       const { error: uploadError } = await admin.storage
         .from("documents")
@@ -95,7 +91,7 @@ export async function POST(req: NextRequest) {
         org_id: orgId,
         sender_email: senderEmail,
         sender_name: senderName,
-        subject,
+        subject: subject || null,
         file_name: filename,
         file_url: fileUrl,
         file_type: contentType,
@@ -110,6 +106,7 @@ export async function POST(req: NextRequest) {
       processed++;
     }
 
+    console.log("Processed", processed, "attachments for org:", orgId);
     return NextResponse.json({ success: true, count: processed });
   } catch (err) {
     console.error("Inbound email error:", err);
