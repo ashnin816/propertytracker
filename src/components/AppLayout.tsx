@@ -847,11 +847,17 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
           </div>
           {spaces.length === 0 ? (
             <div className="px-4 py-8 text-center">
-              <p className="text-sm text-gray-400 mb-3">No spaces yet</p>
-              <button onClick={async () => { await loadDemoData(); await refreshSpaces(); toast("Demo data loaded"); }}
-                className="text-xs text-blue-500 font-medium hover:text-blue-600 no-min-size cursor-pointer">
-                Try demo data
-              </button>
+              {authUser?.assignments !== undefined ? (
+                <p className="text-sm text-gray-400">No properties assigned</p>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-400 mb-3">No spaces yet</p>
+                  <button onClick={async () => { await loadDemoData(); await refreshSpaces(); toast("Demo data loaded"); }}
+                    className="text-xs text-blue-500 font-medium hover:text-blue-600 no-min-size cursor-pointer">
+                    Try demo data
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <div className="space-y-0.5 px-2">
@@ -1147,20 +1153,37 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
           {view === "home" && (
             <div className="flex-1 flex items-center justify-center px-4">
               {spaces.length === 0 ? (
-                <div className="text-center">
-                  <div className="w-24 h-24 mx-auto mb-6 text-blue-500 dark:text-blue-400 relative">
-                    <div className="absolute inset-0 bg-blue-500/10 rounded-full animate-pulse" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <svg className="w-14 h-14" viewBox="0 0 48 48" fill="none"><path d="M24 6L4 22h6v18a2 2 0 002 2h24a2 2 0 002-2V22h6L24 6z" fill="currentColor" opacity="0.2"/><path d="M24 6L4 22h6v18a2 2 0 002 2h24a2 2 0 002-2V22h6L24 6z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                authUser?.assignments !== undefined ? (
+                  /* Non-admin with no assignments */
+                  <div className="text-center">
+                    <div className="w-24 h-24 mx-auto mb-6 text-gray-300 dark:text-gray-600 relative">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <svg className="w-14 h-14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
                     </div>
+                    <h1 className="text-2xl font-bold mb-2 dark:text-white">No Access Yet</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mb-2 max-w-sm mx-auto">Your admin hasn&apos;t assigned you to any properties yet.</p>
+                    <p className="text-sm text-gray-400">Contact your organization admin to get access.</p>
                   </div>
-                  <h1 className="text-2xl font-bold mb-2 dark:text-white">Welcome to PropertyTracker</h1>
-                  <p className="text-gray-500 dark:text-gray-400 mb-8">Manage documents for all your properties.</p>
-                  <button onClick={() => setShowAddSpace(true)}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all font-semibold shadow-lg shadow-blue-500/25 cursor-pointer">
-                    Get Started
-                  </button>
-                </div>
+                ) : (
+                  /* Admin with no properties */
+                  <div className="text-center">
+                    <div className="w-24 h-24 mx-auto mb-6 text-blue-500 dark:text-blue-400 relative">
+                      <div className="absolute inset-0 bg-blue-500/10 rounded-full animate-pulse" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <svg className="w-14 h-14" viewBox="0 0 48 48" fill="none"><path d="M24 6L4 22h6v18a2 2 0 002 2h24a2 2 0 002-2V22h6L24 6z" fill="currentColor" opacity="0.2"/><path d="M24 6L4 22h6v18a2 2 0 002 2h24a2 2 0 002-2V22h6L24 6z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </div>
+                    </div>
+                    <h1 className="text-2xl font-bold mb-2 dark:text-white">Welcome to PropertyTracker</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mb-8">Manage documents for all your properties.</p>
+                    <button onClick={() => setShowAddSpace(true)}
+                      className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all font-semibold shadow-lg shadow-blue-500/25 cursor-pointer">
+                      Get Started
+                    </button>
+                  </div>
+                )
               ) : (
                 <div className="w-full max-w-md">
                   <div className="text-center mb-8">
