@@ -91,7 +91,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
 
   async function loadMembers() {
     if (!user?.orgId) return;
-    const res = await fetch(`/api/users?org_id=${user.orgId}`);
+    const res = await authFetch(`/api/users?org_id=${user.orgId}`);
     const data = await res.json();
     if (Array.isArray(data)) setMembers(data);
     setLoading(false);
@@ -133,7 +133,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
   async function handleDelete() {
     if (!deleteUser) return;
     setDeleting(true);
-    await fetch(`/api/users?user_id=${deleteUser.id}`, { method: "DELETE" });
+    await authFetch(`/api/users?user_id=${deleteUser.id}`, { method: "DELETE" });
     await loadMembers();
     setDeleteUser(null);
     setDeleting(false);
