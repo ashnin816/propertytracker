@@ -28,7 +28,8 @@ const ROLE_COLORS: Record<string, string> = {
   tenant: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
 };
 
-const AVATAR_COLORS = ["bg-blue-500", "bg-emerald-500", "bg-violet-500", "bg-amber-500", "bg-rose-500", "bg-cyan-500"];
+type SortKey = "name" | "email" | "role" | "status" | "created_at";
+type SortDir = "asc" | "desc";
 
 interface TeamPanelProps {
   spaces: Space[];
@@ -39,8 +40,9 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("active");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   // Add form
   const [name, setName] = useState("");
@@ -118,10 +120,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
   }
 
   async function handleExpandMember(memberId: string) {
-    if (expandedMember === memberId) {
-      setExpandedMember(null);
-      return;
-    }
+    if (expandedMember === memberId) { setExpandedMember(null); return; }
     setExpandedMember(memberId);
     setLoadingAssignments(true);
     const res = await fetch("/api/users", {
@@ -131,9 +130,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     });
     const data = await res.json();
     const map: Record<string, boolean> = {};
-    if (Array.isArray(data)) {
-      for (const a of data) map[a.space_id] = true;
-    }
+    if (Array.isArray(data)) { for (const a of data) map[a.space_id] = true; }
     setMemberAssignments(map);
     setLoadingAssignments(false);
   }
@@ -143,33 +140,44 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     await fetch("/api/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: assigned ? "unassign" : "assign",
-        userId: memberId,
-        spaceId,
-      }),
+      body: JSON.stringify({ action: assigned ? "unassign" : "assign", userId: memberId, spaceId }),
     });
     setMemberAssignments((prev) => ({ ...prev, [spaceId]: !assigned }));
     setSavingAssignment(null);
-  }
-
-  function getInitials(n: string) {
-    return n.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
   }
 
   function formatDate(dateStr: string) {
     return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   }
 
-  // Filtering
-  const filtered = members.filter((m) => {
-    const roleMatch = roleFilter === "all" || m.role === roleFilter;
-    const statusMatch = statusFilter === "all" || (m.status || "active") === statusFilter;
-    return roleMatch && statusMatch;
-  });
-  const activeCount = members.filter((m) => (m.status || "active") === "active").length;
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  // Filter + sort
   const inactiveCount = members.filter((m) => m.status === "inactive").length;
-  const roleCounts = members.reduce((acc, m) => { acc[m.role] = (acc[m.role] || 0) + 1; return acc; }, {} as Record<string, number>);
+  const filtered = members
+    .filter((m) => statusFilter === "all" || (m.status || "active") === statusFilter)
+    .sort((a, b) => {
+      let aVal = a[sortKey] || "";
+      let bVal = b[sortKey] || "";
+      if (sortKey === "role") { aVal = ROLE_LABELS[aVal] || aVal; bVal = ROLE_LABELS[bVal] || bVal; }
+      if (sortKey === "status") { aVal = aVal || "active"; bVal = bVal || "active"; }
+      const cmp = aVal.localeCompare(bVal);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <svg className="w-3 h-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>;
+    return sortDir === "asc"
+      ? <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+      : <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>;
+  }
 
   if (loading) {
     return (
@@ -183,11 +191,28 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
     <>
       <div className="p-4 md:p-6 h-full overflow-y-auto">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-4">
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {activeCount} active member{activeCount !== 1 ? "s" : ""}{inactiveCount > 0 ? ` · ${inactiveCount} inactive` : ""}
+              {filtered.length} member{filtered.length !== 1 ? "s" : ""}
             </p>
+            {inactiveCount > 0 && (
+              <button onClick={() => setStatusFilter(statusFilter === "active" ? "all" : "active")}
+                className={`flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer ${
+                  statusFilter === "all" ? "text-blue-600 dark:text-blue-400" : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                }`}>
+                <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center transition-colors ${
+                  statusFilter === "all" ? "bg-blue-600 border-blue-600" : "border-gray-300 dark:border-gray-600"
+                }`}>
+                  {statusFilter === "all" && (
+                    <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+                Show inactive ({inactiveCount})
+              </button>
+            )}
           </div>
           <button onClick={() => setShowAdd(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all font-medium text-sm shadow-lg shadow-blue-500/20 cursor-pointer">
@@ -198,188 +223,145 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
           </button>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-2 mb-5">
-          {/* Status filters */}
-          {(["active", "inactive", "all"] as const).map((s) => {
-            const count = s === "all" ? members.length : s === "active" ? activeCount : inactiveCount;
-            if (s === "inactive" && inactiveCount === 0 && statusFilter !== "inactive") return null;
-            return (
-              <button key={s} onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
-                  statusFilter === s ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                }`}>
-                {s === "all" ? "All" : s === "active" ? "Active" : "Inactive"} ({count})
-              </button>
-            );
-          })}
+        {/* Table */}
+        <div className="bg-white dark:bg-[#1a2332] rounded-xl border border-gray-200/60 dark:border-gray-800 overflow-hidden">
+          {/* Table header */}
+          <div className="grid grid-cols-[1fr_1fr_auto_auto_auto] sm:grid-cols-[1fr_1.2fr_100px_90px_140px] items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-white/[0.02]">
+            <button onClick={() => handleSort("name")} className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+              Name <SortIcon col="name" />
+            </button>
+            <button onClick={() => handleSort("email")} className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+              Email <SortIcon col="email" />
+            </button>
+            <button onClick={() => handleSort("role")} className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+              Role <SortIcon col="role" />
+            </button>
+            <button onClick={() => handleSort("status")} className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+              Status <SortIcon col="status" />
+            </button>
+            <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">
+              Actions
+            </div>
+          </div>
 
-          {/* Divider */}
-          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
-
-          {/* Role filters */}
-          <button onClick={() => setRoleFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
-              roleFilter === "all" ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-            }`}>
-            All Roles
-          </button>
-          {Object.entries(ROLE_LABELS).map(([key, label]) => (
-            roleCounts[key] ? (
-              <button key={key} onClick={() => setRoleFilter(key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
-                  roleFilter === key ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                }`}>
-                {label} ({roleCounts[key]})
-              </button>
-            ) : null
-          ))}
-        </div>
-
-        {/* Member list */}
-        <div className="space-y-2">
-          {filtered.map((m) => {
-            const isCurrentUser = m.id === user?.id;
-            const isInactive = m.status === "inactive";
-            const colorIndex = members.indexOf(m);
-            const canManage = !isCurrentUser && m.role !== "org_admin";
-            const isExpanded = expandedMember === m.id;
-            const canAssign = canManage && m.role !== "org_admin";
-            return (
-              <div key={m.id} className={`bg-white dark:bg-[#1a2332] rounded-xl border transition-colors ${
-                isExpanded ? "border-blue-300 dark:border-blue-700" : "border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700"
-              } ${isInactive ? "opacity-50" : ""}`}>
-                <div className={`flex items-center gap-4 p-4 ${canAssign ? "cursor-pointer" : ""}`}
-                  onClick={() => canAssign && handleExpandMember(m.id)}>
-                  {/* Avatar */}
-                  <div className={`w-10 h-10 rounded-full ${isInactive ? "bg-gray-400" : AVATAR_COLORS[colorIndex % AVATAR_COLORS.length]} flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
-                    {getInitials(m.name)}
-                  </div>
-
-                  {/* Info */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold dark:text-white truncate">{m.name}</p>
-                      {isCurrentUser && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">You</span>
-                      )}
-                      {isInactive && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-medium flex-shrink-0">Inactive</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-400 truncate">{m.email}</p>
-                  </div>
-
-                  {/* Role badge */}
-                  <div className="hidden sm:block flex-shrink-0">
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${ROLE_COLORS[m.role] || "bg-gray-100 text-gray-600"}`}>
-                      {ROLE_LABELS[m.role] || m.role}
-                    </span>
-                  </div>
-
-                  {/* Date */}
-                  <div className="hidden md:block flex-shrink-0">
-                    <p className="text-xs text-gray-400">{formatDate(m.created_at)}</p>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                    {canManage && (
-                      <>
-                        <button
-                          onClick={() => handleToggleStatus(m)}
-                          disabled={togglingStatus === m.id}
-                          title={isInactive ? "Reactivate user" : "Deactivate user"}
-                          className={`p-2 rounded-lg transition-colors cursor-pointer ${
-                            isInactive
-                              ? "text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                              : "text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                          } ${togglingStatus === m.id ? "opacity-50" : ""}`}>
-                          {isInactive ? (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          )}
-                        </button>
-                        <button onClick={() => setDeleteUser(m)}
-                          title="Permanently delete"
-                          className="p-2 rounded-lg text-gray-300 dark:text-gray-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </>
-                    )}
-                    {!canManage && <div className="w-16" />}
-                    {/* Expand chevron */}
-                    {canAssign && (
-                      <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    )}
-                  </div>
-                </div>
-
-                {/* Expanded: Property assignments */}
-                {isExpanded && (
-                  <div className="px-4 pb-4 pt-0 border-t border-gray-100 dark:border-gray-800">
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-3 mb-2">
-                      Property Access
-                    </p>
-                    {loadingAssignments ? (
-                      <div className="flex items-center gap-2 py-2">
-                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-xs text-gray-400">Loading...</span>
+          {/* Table rows */}
+          {filtered.length === 0 ? (
+            <div className="px-4 py-12 text-center">
+              <p className="text-sm text-gray-400">No members found</p>
+            </div>
+          ) : (
+            <div>
+              {filtered.map((m) => {
+                const isCurrentUser = m.id === user?.id;
+                const isInactive = m.status === "inactive";
+                const canManage = !isCurrentUser && m.role !== "org_admin";
+                const canAssign = canManage;
+                const isExpanded = expandedMember === m.id;
+                return (
+                  <div key={m.id} className={isInactive ? "opacity-60" : ""}>
+                    <div className={`grid grid-cols-[1fr_1fr_auto_auto_auto] sm:grid-cols-[1fr_1.2fr_100px_90px_140px] items-center gap-2 px-4 py-3 border-b border-gray-50 dark:border-gray-800/50 last:border-b-0 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors ${canAssign ? "cursor-pointer" : ""}`}
+                      onClick={() => canAssign && handleExpandMember(m.id)}>
+                      {/* Name */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="text-sm font-medium dark:text-white truncate">{m.name}</p>
+                        {isCurrentUser && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">You</span>
+                        )}
                       </div>
-                    ) : spaces.length === 0 ? (
-                      <p className="text-xs text-gray-400 py-2">No properties in this organization</p>
-                    ) : (
-                      <div className="space-y-1">
-                        {spaces.map((space) => {
-                          const assigned = memberAssignments[space.id] || false;
-                          const saving = savingAssignment === space.id;
-                          return (
-                            <button key={space.id}
-                              onClick={() => handleToggleAssignment(m.id, space.id, assigned)}
-                              disabled={saving}
-                              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors cursor-pointer ${
-                                assigned ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-gray-50 dark:hover:bg-gray-800"
-                              } ${saving ? "opacity-50" : ""}`}>
-                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                                assigned ? "bg-blue-600 border-blue-600" : "border-gray-300 dark:border-gray-600"
+
+                      {/* Email */}
+                      <p className="hidden sm:block text-sm text-gray-500 dark:text-gray-400 truncate">{m.email}</p>
+
+                      {/* Role */}
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md w-fit ${ROLE_COLORS[m.role] || "bg-gray-100 text-gray-600"}`}>
+                        {ROLE_LABELS[m.role] || m.role}
+                      </span>
+
+                      {/* Status */}
+                      <div className="hidden sm:flex items-center gap-1.5">
+                        <div className={`w-1.5 h-1.5 rounded-full ${isInactive ? "bg-red-400" : "bg-emerald-400"}`} />
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{isInactive ? "Inactive" : "Active"}</span>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        {canManage && (
+                          <>
+                            <button
+                              onClick={() => handleToggleStatus(m)}
+                              disabled={togglingStatus === m.id}
+                              className={`text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                                togglingStatus === m.id ? "opacity-50" : ""
+                              } ${isInactive
+                                ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
                               }`}>
-                                {assigned && (
-                                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                )}
-                              </div>
-                              <span className="text-sm dark:text-gray-200">{space.name}</span>
+                              {isInactive ? "Activate" : "Deactivate"}
                             </button>
-                          );
-                        })}
-                        {Object.values(memberAssignments).filter(Boolean).length === 0 && (
-                          <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">No properties assigned — this user won&apos;t see any data</p>
+                            <button onClick={() => setDeleteUser(m)}
+                              title="Delete"
+                              className="p-1.5 rounded-lg text-gray-300 dark:text-gray-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </>
+                        )}
+                        {canAssign && (
+                          <svg className={`w-4 h-4 text-gray-300 dark:text-gray-600 transition-transform ml-1 ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Expanded: Property assignments */}
+                    {isExpanded && (
+                      <div className="px-4 pb-3 pt-1 bg-gray-50/50 dark:bg-white/[0.02] border-b border-gray-100 dark:border-gray-800">
+                        <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Property Access</p>
+                        {loadingAssignments ? (
+                          <div className="flex items-center gap-2 py-1">
+                            <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                            <span className="text-xs text-gray-400">Loading...</span>
+                          </div>
+                        ) : spaces.length === 0 ? (
+                          <p className="text-xs text-gray-400">No properties yet</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {spaces.map((space) => {
+                              const assigned = memberAssignments[space.id] || false;
+                              const saving = savingAssignment === space.id;
+                              return (
+                                <button key={space.id}
+                                  onClick={() => handleToggleAssignment(m.id, space.id, assigned)}
+                                  disabled={saving}
+                                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                                    assigned
+                                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                                      : "bg-white dark:bg-[#1a2332] border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-600"
+                                  } ${saving ? "opacity-50" : ""}`}>
+                                  {space.name}
+                                  {assigned && (
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {!loadingAssignments && Object.values(memberAssignments).filter(Boolean).length === 0 && spaces.length > 0 && (
+                          <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-2">No properties assigned — this user won&apos;t see any data</p>
                         )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
-
-        {filtered.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-sm text-gray-400">No members match the current filters</p>
-          </div>
-        )}
       </div>
 
       {/* Add User Modal */}
@@ -390,7 +372,6 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
               <h2 className="text-xl font-bold dark:text-white">Add Team Member</h2>
               <p className="text-sm text-gray-400 mt-1">Create an account for a new team member</p>
             </div>
-
             <form onSubmit={handleAdd} className="px-6 pb-6">
               <div className="space-y-3 mb-4">
                 <div>
@@ -412,8 +393,6 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                     className="w-full border border-gray-300 dark:border-gray-600 dark:bg-[#0c1222] dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
-
-              {/* Role picker */}
               <div className="mb-4">
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Role</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -432,11 +411,9 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                   ))}
                 </div>
               </div>
-
               {error && (
                 <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-xl text-xs text-red-600 dark:text-red-400">{error}</div>
               )}
-
               <div className="flex gap-3">
                 <button type="button" onClick={() => setShowAdd(false)}
                   className="flex-1 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#0c1222] active:scale-[0.98] transition-all font-medium text-sm cursor-pointer">
