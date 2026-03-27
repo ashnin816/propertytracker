@@ -1855,7 +1855,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
               <h2 className="text-lg font-bold dark:text-white">Change Icon</h2>
               <p className="text-sm text-gray-400 mt-1">Choose an icon for this asset</p>
             </div>
-            <div className="px-6 pb-6 grid grid-cols-6 gap-2 max-h-64 overflow-y-auto">
+            <div className="px-6 pb-6 grid grid-cols-5 gap-2 max-h-80 overflow-y-auto">
               {ITEM_PRESETS.map((p) => (
                 <button key={p.key} onClick={async () => {
                   await updateItem(changeIconTarget.id, { icon: p.key });
@@ -1867,11 +1867,11 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                   setChangeIconTarget(null);
                   toast(`Icon changed`);
                 }}
-                  className={`w-full aspect-square rounded-xl p-2 cursor-pointer transition-all ${
+                  className={`flex flex-col items-center gap-1 rounded-xl p-2 cursor-pointer transition-all ${
                     changeIconTarget.currentIcon === p.key ? "ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30" : "hover:bg-gray-100 dark:hover:bg-gray-800"
-                  }`}
-                  title={p.label}>
-                  <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: p.svg }} />
+                  }`}>
+                  <div className="w-9 h-9" dangerouslySetInnerHTML={{ __html: p.svg }} />
+                  <span className="text-[9px] text-gray-500 dark:text-gray-400 leading-tight text-center truncate w-full">{p.label}</span>
                 </button>
               ))}
             </div>
