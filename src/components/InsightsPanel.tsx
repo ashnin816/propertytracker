@@ -68,6 +68,25 @@ export default function InsightsPanel() {
         ))}
       </div>
 
+      {/* Email hint */}
+      {user?.orgSlug && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 flex items-center gap-3 mb-6">
+          <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-blue-900 dark:text-blue-200">Email documents directly</p>
+            <p className="text-xs text-blue-700/70 dark:text-blue-300/60 mt-0.5">
+              Send attachments to{" "}
+              <button onClick={() => navigator.clipboard.writeText(`${user.orgSlug}@inbound.propertytrackerplus.com`)}
+                className="font-semibold underline cursor-pointer">{user.orgSlug}@inbound.propertytrackerplus.com</button>
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         {/* Expiring Soon */}
         <div className="lg:col-span-2 bg-white dark:bg-[#1a2332] rounded-xl border border-gray-200/60 dark:border-gray-800 overflow-hidden">
@@ -157,6 +176,7 @@ export default function InsightsPanel() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <h2 className="text-sm font-bold dark:text-white">Missing Coverage</h2>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto italic">Based on AI analysis — may not reflect all coverage</span>
           </div>
           <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
             {data.missingInsurance.length > 0 && (
@@ -190,24 +210,6 @@ export default function InsightsPanel() {
         </div>
       )}
 
-      {/* Email hint */}
-      {user?.orgSlug && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-blue-900 dark:text-blue-200">Email documents directly</p>
-            <p className="text-xs text-blue-700/70 dark:text-blue-300/60 mt-0.5">
-              Send attachments to{" "}
-              <button onClick={() => navigator.clipboard.writeText(`${user.orgSlug}@inbound.propertytrackerplus.com`)}
-                className="font-semibold underline cursor-pointer">{user.orgSlug}@inbound.propertytrackerplus.com</button>
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
