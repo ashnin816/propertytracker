@@ -270,6 +270,21 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
     }
   }, [contextDeleteItemId]);
 
+  // Sort items: Property Documents first, custom/unknown last, rest alphabetical
+  function sortItems(itemList: Item[]): Item[] {
+    return [...itemList].sort((a, b) => {
+      const aIsPropertyDocs = a.icon === "property-docs";
+      const bIsPropertyDocs = b.icon === "property-docs";
+      if (aIsPropertyDocs && !bIsPropertyDocs) return -1;
+      if (!aIsPropertyDocs && bIsPropertyDocs) return 1;
+      const aIsCustom = a.icon === "custom";
+      const bIsCustom = b.icon === "custom";
+      if (aIsCustom && !bIsCustom) return 1;
+      if (!aIsCustom && bIsCustom) return -1;
+      return a.name.localeCompare(b.name);
+    });
+  }
+
   async function refreshSpaces() {
     const s = await getAllSpaces(mirrorOrgId, authUser?.assignments);
     setSpaces(s);
@@ -1408,7 +1423,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
               ) : (
                 <div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {items.map((item) => {
+                  {sortItems(items).map((item) => {
                     const preset = item.icon !== "custom" && !item.icon.startsWith("icon-") ? getItemPreset(item.icon) : null;
                     const ci = item.icon.startsWith("icon-") ? getCustomIcon(item.icon) : null;
                     const c = preset ? getCategoryColors(preset.category) : null;
@@ -1534,7 +1549,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                 <div>
                   <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 block">Building Assets</span>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {items.map((item) => {
+                    {sortItems(items).map((item) => {
                       const preset = item.icon !== "custom" && !item.icon.startsWith("icon-") ? getItemPreset(item.icon) : null;
                       const ci = item.icon.startsWith("icon-") ? getCustomIcon(item.icon) : null;
                       const dc = documentCounts[item.id] || 0;
@@ -1610,7 +1625,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {items.map((item) => {
+                  {sortItems(items).map((item) => {
                     const preset = item.icon !== "custom" && !item.icon.startsWith("icon-") ? getItemPreset(item.icon) : null;
                     const ci = item.icon.startsWith("icon-") ? getCustomIcon(item.icon) : null;
                     const dc = documentCounts[item.id] || 0;
