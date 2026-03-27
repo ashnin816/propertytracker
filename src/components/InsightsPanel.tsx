@@ -168,44 +168,25 @@ export default function InsightsPanel() {
         </div>
       </div>
 
-      {/* Missing Coverage */}
-      {(data.missingInsurance.length > 0 || data.missingWarranty.length > 0) && (
+      {/* Missing Insurance */}
+      {data.missingInsurance.length > 0 && (
         <div className="bg-white dark:bg-[#1a2332] rounded-xl border border-gray-200/60 dark:border-gray-800 overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
             <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <h2 className="text-sm font-bold dark:text-white">Missing Coverage</h2>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto italic">Based on AI analysis — may not reflect all coverage</span>
+            <h2 className="text-sm font-bold dark:text-white">No Insurance on File</h2>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto italic">Based on AI analysis of uploaded documents</span>
           </div>
-          <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {data.missingInsurance.length > 0 && (
-              <div>
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">No Insurance on File</p>
-                <div className="space-y-1.5">
-                  {data.missingInsurance.map((name) => (
-                    <div key={name} className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
-                      <span className="text-sm text-gray-600 dark:text-gray-300">{name}</span>
-                    </div>
-                  ))}
+          <div className="p-5">
+            <div className="space-y-1.5">
+              {data.missingInsurance.map((name) => (
+                <div key={name} className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300">{name}</span>
                 </div>
-              </div>
-            )}
-            {data.missingWarranty.length > 0 && (
-              <div>
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">No Warranty on File</p>
-                <div className="space-y-1.5">
-                  {data.missingWarranty.map((item, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
-                      <span className="text-sm text-gray-600 dark:text-gray-300">{item.itemName}</span>
-                      <span className="text-[11px] text-gray-400">{item.spaceName}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
         </div>
       )}
