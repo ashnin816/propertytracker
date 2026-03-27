@@ -1672,15 +1672,6 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                 </div>
               )}
 
-              {false && canEditStructure && items.length > 0 && (
-                <div className="flex justify-center mt-6">
-                  <button onClick={() => setShowAddItem(true)}
-                    className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-medium cursor-pointer no-min-size">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-                    Add Asset
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
