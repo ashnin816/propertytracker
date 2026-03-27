@@ -148,20 +148,22 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
       setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], units, loadingUnits: false } }));
     } else {
       const items = await getItemsForSpace(spaceId);
-      setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], items, loadingItems: false } }));
+      const autoItemId = items.length === 1 ? items[0].id : "";
+      setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], items, itemId: autoItemId, loadingItems: false } }));
     }
   }
 
   async function handleUnitChange(docId: string, unitId: string) {
     setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], unitId, itemId: "", items: [], loadingItems: true } }));
     if (unitId === "__building__") {
-      // Load building-level assets (items without a unit)
       const allItems = await getItemsForSpace(assignments[docId]?.spaceId || "");
       const buildingItems = allItems.filter((i) => !i.unitId);
-      setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], items: buildingItems, loadingItems: false } }));
+      const autoItemId = buildingItems.length === 1 ? buildingItems[0].id : "";
+      setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], items: buildingItems, itemId: autoItemId, loadingItems: false } }));
     } else if (unitId) {
       const items = await getItemsForUnit(unitId);
-      setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], items, loadingItems: false } }));
+      const autoItemId = items.length === 1 ? items[0].id : "";
+      setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], items, itemId: autoItemId, loadingItems: false } }));
     } else {
       setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], unitId: "", itemId: "", items: [], loadingItems: false } }));
     }
