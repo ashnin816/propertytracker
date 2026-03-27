@@ -48,6 +48,7 @@ export interface Document {
   fileUrl: string; // base64 data URL
   fileType: string;
   extractedText?: string; // OCR text from images
+  details?: Record<string, string>; // Structured AI analysis (type, expiration, amount, etc.)
   ocrStatus?: "pending" | "processing" | "done" | "failed";
   createdAt: string;
 }

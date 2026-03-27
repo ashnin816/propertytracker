@@ -576,7 +576,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
             const result = await analyzeDocument(data, file.type);
             setAnalyzeModal((prev) => ({ ...prev, stage: "naming", extractedText: result.extractedText || null }));
             await new Promise((r) => setTimeout(r, 400));
-            await updateDocument(doc.id, { extractedText: result.extractedText || undefined, ocrStatus: "done" });
+            await updateDocument(doc.id, { extractedText: result.extractedText || undefined, details: result.details || undefined, ocrStatus: "done" });
             setDocuments(await getDocumentsForItem(itemId));
             setAnalyzeModal((prev) => ({ ...prev, stage: "done", suggestedName: result.name }));
           } else if (file.type === "application/pdf") {
@@ -597,7 +597,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
               const result = await analyzeDocument(textForClaude, "text/plain");
               setAnalyzeModal((prev) => ({ ...prev, stage: "naming", extractedText: result.extractedText || textForClaude }));
               await new Promise((r) => setTimeout(r, 400));
-              await updateDocument(doc.id, { extractedText: textForSearch || result.extractedText || undefined, ocrStatus: "done" });
+              await updateDocument(doc.id, { extractedText: textForSearch || result.extractedText || undefined, details: result.details || undefined, ocrStatus: "done" });
               setDocuments(await getDocumentsForItem(itemId));
               setAnalyzeModal((prev) => ({ ...prev, stage: "done", suggestedName: result.name }));
             } else {

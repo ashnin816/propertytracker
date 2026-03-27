@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
 
     // Get all docs with text
     const { data: docs } = await admin.from("documents")
-      .select("id, name, item_id, extracted_text")
+      .select("id, name, item_id, extracted_text, details")
       .in("item_id", itemIds)
       .not("extracted_text", "is", null);
 
@@ -84,9 +84,11 @@ export async function GET(req: NextRequest) {
     const expiringDocs: { docId: string; docName: string; spaceName: string; itemName: string; expiryDate: string; daysRemaining: number; threshold: number }[] = [];
 
     for (const doc of docs || []) {
-      const details = parseDocDetails(doc.extracted_text);
-      if (!details?.expiry) continue;
-      const expiryDate = parseExpiryToDate(details.expiry);
+      const storedDetails = doc.details as Record<string, string> | null;
+      const parsedDetails = parseDocDetails(doc.extracted_text);
+      const expiry = storedDetails?.expiration || storedDetails?.expiry || parsedDetails?.expiry;
+      if (!expiry) continue;
+      const expiryDate = parseExpiryToDate(expiry);
       if (!expiryDate) continue;
 
       const diff = expiryDate.getTime() - now.getTime();

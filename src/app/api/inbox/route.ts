@@ -115,6 +115,7 @@ export async function POST(req: NextRequest) {
       file_url: inbox.file_url,
       file_type: inbox.file_type,
       extracted_text: inbox.extracted_text || null,
+      details: inbox.details || null,
       ocr_status: inbox.extracted_text ? "done" : "pending",
     });
     if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 });

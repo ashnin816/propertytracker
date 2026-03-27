@@ -26,6 +26,7 @@ async function processWithAI(admin: SupabaseClient, docId: string, fileUrl: stri
   try {
     let extractedText = "";
     let smartName: string | null = null;
+    let docDetails: Record<string, string> | null = null;
 
     if (isImage) {
       // Step 1: Download image and send to Claude for analysis
@@ -72,6 +73,7 @@ Return ONLY valid JSON, no markdown or explanation.`,
           const parsed = JSON.parse(cleaned);
           extractedText = parsed.extractedText || "";
           smartName = parsed.name || null;
+          docDetails = parsed.details || null;
         } catch {
           extractedText = text;
         }
@@ -148,6 +150,7 @@ Return ONLY valid JSON, no markdown or explanation.`,
             const parsed = JSON.parse(cleaned);
             extractedText = parsed.extractedText || pdfText.slice(0, 2000) || "";
             smartName = parsed.name || null;
+            docDetails = parsed.details || null;
           } catch {
             extractedText = pdfText.slice(0, 2000) || text;
           }
@@ -162,9 +165,10 @@ Return ONLY valid JSON, no markdown or explanation.`,
       }
     }
 
-    // Update the document with extracted text and smart name
+    // Update the document with extracted text, details, and smart name
     const updates: Record<string, unknown> = { extracted_text: extractedText || null };
     if (smartName) updates.file_name = smartName;
+    if (docDetails) updates.details = docDetails;
     await admin.from("inbox_documents").update(updates).eq("id", docId);
 
     // Step 2: Match to property/asset

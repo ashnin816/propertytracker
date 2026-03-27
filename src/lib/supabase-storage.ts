@@ -21,6 +21,7 @@ function toDocument(row: Record<string, unknown>): Document {
     id: row.id as string, itemId: row.item_id as string, name: row.name as string,
     fileUrl: row.file_url as string, fileType: row.file_type as string,
     extractedText: row.extracted_text as string | undefined,
+    details: row.details as Record<string, string> | undefined,
     ocrStatus: row.ocr_status as Document["ocrStatus"],
     createdAt: row.created_at as string,
   };
@@ -193,10 +194,11 @@ export async function addDocument(itemId: string, name: string, fileUrl: string,
   return toDocument(data!);
 }
 
-export async function updateDocument(id: string, updates: Partial<Pick<Document, "name" | "extractedText" | "ocrStatus">>) {
+export async function updateDocument(id: string, updates: Partial<Pick<Document, "name" | "extractedText" | "details" | "ocrStatus">>) {
   const dbUpdates: Record<string, unknown> = {};
   if (updates.name !== undefined) dbUpdates.name = updates.name;
   if (updates.extractedText !== undefined) dbUpdates.extracted_text = updates.extractedText;
+  if (updates.details !== undefined) dbUpdates.details = updates.details;
   if (updates.ocrStatus !== undefined) dbUpdates.ocr_status = updates.ocrStatus;
   await supabase.from("documents").update(dbUpdates).eq("id", id);
 }

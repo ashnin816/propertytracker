@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
 
   // Documents — single query with all we need
   const { data: docs, count: docCount } = itemIds.length > 0
-    ? await admin.from("documents").select("id, name, item_id, extracted_text", { count: "exact" }).in("item_id", itemIds)
+    ? await admin.from("documents").select("id, name, item_id, extracted_text, details", { count: "exact" }).in("item_id", itemIds)
     : { data: [], count: 0 };
 
   const counts = {
@@ -97,16 +97,21 @@ export async function GET(req: NextRequest) {
   const spacesWithInsurance = new Set<string>();
 
   for (const doc of docs || []) {
-    const details = parseDocDetails(doc.extracted_text);
-    if (!details) continue;
+    // Prefer stored structured details from Claude, fall back to regex parsing
+    const storedDetails = doc.details as Record<string, string> | null;
+    const parsedDetails = parseDocDetails(doc.extracted_text);
+    const docType = storedDetails?.type || parsedDetails?.type;
+    const expiry = storedDetails?.expiration || storedDetails?.expiry || parsedDetails?.expiry;
+
     const item = itemMap[doc.item_id];
     if (!item) continue;
+    if (!docType && !expiry) continue;
 
-    if (details.type) typeCounts[details.type] = (typeCounts[details.type] || 0) + 1;
-    if (details.type === "Insurance") spacesWithInsurance.add(item.spaceId);
+    if (docType) typeCounts[docType] = (typeCounts[docType] || 0) + 1;
+    if (docType?.toLowerCase() === "insurance") spacesWithInsurance.add(item.spaceId);
 
-    if (details.expiry) {
-      const expiryDate = parseExpiryToDate(details.expiry);
+    if (expiry) {
+      const expiryDate = parseExpiryToDate(expiry);
       if (expiryDate) {
         const diff = expiryDate.getTime() - now.getTime();
         if (diff > 0 && diff < ninetyDaysMs) {
