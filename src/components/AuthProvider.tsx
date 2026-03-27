@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { UserProfile, getProfile, signIn, signOut, onAuthChange, signUp, setupSuperAdmin } from "@/lib/auth";
+import { UserProfile, getProfile, signIn, signOut, onAuthChange, signUp, setupSuperAdmin, clearProfileCache } from "@/lib/auth";
 
 interface AuthContextValue {
   user: UserProfile | null;
@@ -38,7 +38,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = onAuthChange(async (event) => {
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+      if (event === "SIGNED_IN") {
+        // Force refresh on sign in
+        const profile = await getProfile(true);
+        if (profile && profile.status === "inactive") {
+          await signOut();
+          setUser(null);
+          return;
+        }
+        setUser(profile);
+      } else if (event === "TOKEN_REFRESHED") {
+        // Use cache on token refresh (same user)
         const profile = await getProfile();
         if (profile && profile.status === "inactive") {
           await signOut();
@@ -47,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         setUser(profile);
       } else if (event === "SIGNED_OUT") {
+        clearProfileCache();
         setUser(null);
       }
     });

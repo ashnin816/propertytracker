@@ -24,21 +24,13 @@ async function getCallerProfile(req: NextRequest) {
 }
 
 function parseExpiryToDate(expiry: string): Date | null {
-  // Try various date formats
-  const now = new Date();
-
-  // Just a year like "2028"
   if (/^\d{4}$/.test(expiry)) return new Date(parseInt(expiry), 11, 31);
-
-  // MM/DD/YYYY or MM-DD-YYYY
   const slashMatch = expiry.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
   if (slashMatch) {
     let year = parseInt(slashMatch[3]);
     if (year < 100) year += year > 50 ? 1900 : 2000;
     return new Date(year, parseInt(slashMatch[1]) - 1, parseInt(slashMatch[2]));
   }
-
-  // Month name format: "March 15, 2028"
   const monthMatch = expiry.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2}),?\s*(\d{2,4})/i);
   if (monthMatch) {
     const months: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
@@ -46,7 +38,6 @@ function parseExpiryToDate(expiry: string): Date | null {
     if (year < 100) year += year > 50 ? 1900 : 2000;
     return new Date(year, months[monthMatch[1].toLowerCase().slice(0, 3)], parseInt(monthMatch[2]));
   }
-
   return null;
 }
 
@@ -64,76 +55,64 @@ export async function GET(req: NextRequest) {
 
   const admin = getAdminClient();
 
-  // Counts
-  const [spacesRes, unitsRes, itemsRes, docsRes] = await Promise.all([
-    admin.from("spaces").select("id", { count: "exact", head: true }).eq("org_id", orgId),
-    admin.from("units").select("id, space_id", { count: "exact" }).in("space_id",
-      (await admin.from("spaces").select("id").eq("org_id", orgId)).data?.map((s: { id: string }) => s.id) || []
-    ),
-    admin.from("items").select("id", { count: "exact", head: true }).in("space_id",
-      (await admin.from("spaces").select("id").eq("org_id", orgId)).data?.map((s: { id: string }) => s.id) || []
-    ),
-    admin.from("documents").select("id", { count: "exact", head: true }).in("item_id",
-      (await admin.from("items").select("id").in("space_id",
-        (await admin.from("spaces").select("id").eq("org_id", orgId)).data?.map((s: { id: string }) => s.id) || []
-      )).data?.map((i: { id: string }) => i.id) || []
-    ),
-  ]);
-
-  const counts = {
-    properties: spacesRes.count || 0,
-    units: unitsRes.count || 0,
-    assets: itemsRes.count || 0,
-    documents: docsRes.count || 0,
-  };
-
-  // Get all documents with context for analysis
+  // Single query cascade — spaces first, then parallel items + units, then docs
   const { data: spaces } = await admin.from("spaces").select("id, name").eq("org_id", orgId);
   const spaceIds = (spaces || []).map((s: { id: string }) => s.id);
+
+  if (spaceIds.length === 0) {
+    return NextResponse.json({
+      counts: { properties: 0, units: 0, assets: 0, documents: 0 },
+      expiring: [], typeCounts: {}, missingInsurance: [],
+    });
+  }
+
+  // Parallel: units, items
+  const [unitsRes, itemsRes] = await Promise.all([
+    admin.from("units").select("id", { count: "exact", head: true }).in("space_id", spaceIds),
+    admin.from("items").select("id, name, space_id").in("space_id", spaceIds),
+  ]);
+
+  const items = itemsRes.data || [];
+  const itemIds = items.map((i: { id: string }) => i.id);
+  const itemMap = Object.fromEntries(items.map((i: { id: string; name: string; space_id: string }) => [i.id, { name: i.name, spaceId: i.space_id }]));
   const spaceMap = Object.fromEntries((spaces || []).map((s: { id: string; name: string }) => [s.id, s.name]));
 
-  const { data: items } = await admin.from("items").select("id, name, space_id").in("space_id", spaceIds.length > 0 ? spaceIds : ["none"]);
-  const itemMap = Object.fromEntries((items || []).map((i: { id: string; name: string; space_id: string }) => [i.id, { name: i.name, spaceId: i.space_id }]));
+  // Documents — single query with all we need
+  const { data: docs, count: docCount } = itemIds.length > 0
+    ? await admin.from("documents").select("id, name, item_id, extracted_text", { count: "exact" }).in("item_id", itemIds)
+    : { data: [], count: 0 };
 
-  const { data: docs } = await admin.from("documents")
-    .select("id, name, item_id, extracted_text")
-    .in("item_id", (items || []).map((i: { id: string }) => i.id).length > 0 ? (items || []).map((i: { id: string }) => i.id) : ["none"]);
+  const counts = {
+    properties: spaceIds.length,
+    units: unitsRes.count || 0,
+    assets: items.length,
+    documents: docCount || 0,
+  };
 
-  // Process documents
+  // Process documents for insights
   const now = new Date();
   const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
   const expiring: { docId: string; docName: string; spaceName: string; itemName: string; expiryDate: string; daysRemaining: number }[] = [];
   const typeCounts: Record<string, number> = {};
   const spacesWithInsurance = new Set<string>();
-  const itemsWithWarranty = new Set<string>();
 
   for (const doc of docs || []) {
     const details = parseDocDetails(doc.extracted_text);
     if (!details) continue;
-
     const item = itemMap[doc.item_id];
     if (!item) continue;
 
-    // Type counts
-    if (details.type) {
-      typeCounts[details.type] = (typeCounts[details.type] || 0) + 1;
-    }
-
-    // Track coverage
+    if (details.type) typeCounts[details.type] = (typeCounts[details.type] || 0) + 1;
     if (details.type === "Insurance") spacesWithInsurance.add(item.spaceId);
-    if (details.type === "Warranty") itemsWithWarranty.add(doc.item_id);
 
-    // Expiring soon
     if (details.expiry) {
       const expiryDate = parseExpiryToDate(details.expiry);
       if (expiryDate) {
         const diff = expiryDate.getTime() - now.getTime();
         if (diff > 0 && diff < ninetyDaysMs) {
           expiring.push({
-            docId: doc.id,
-            docName: doc.name,
-            spaceName: spaceMap[item.spaceId] || "Unknown",
-            itemName: item.name,
+            docId: doc.id, docName: doc.name,
+            spaceName: spaceMap[item.spaceId] || "Unknown", itemName: item.name,
             expiryDate: expiryDate.toISOString(),
             daysRemaining: Math.ceil(diff / (24 * 60 * 60 * 1000)),
           });
@@ -142,27 +121,16 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Sort by urgency
   expiring.sort((a, b) => a.daysRemaining - b.daysRemaining);
 
-  // Missing coverage
   const missingInsurance = (spaces || [])
     .filter((s: { id: string }) => !spacesWithInsurance.has(s.id))
     .map((s: { name: string }) => s.name);
-
-  const missingWarranty = (items || [])
-    .filter((i: { id: string }) => !itemsWithWarranty.has(i.id))
-    .slice(0, 10) // Limit to 10
-    .map((i: { id: string; name: string; space_id: string }) => ({
-      spaceName: spaceMap[i.space_id] || "Unknown",
-      itemName: i.name,
-    }));
 
   return NextResponse.json({
     counts,
     expiring: expiring.slice(0, 20),
     typeCounts,
     missingInsurance,
-    missingWarranty,
   });
 }

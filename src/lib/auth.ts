@@ -38,6 +38,7 @@ export async function signUp(email: string, password: string, name: string, orgI
 }
 
 export async function signOut() {
+  clearProfileCache();
   await supabase.auth.signOut();
 }
 
@@ -46,62 +47,70 @@ export async function getSession() {
   return data.session;
 }
 
-export async function getProfile(): Promise<UserProfile | null> {
+// In-memory profile cache to avoid repeated round trips
+let cachedProfile: UserProfile | null = null;
+let cachedUserId: string | null = null;
+
+export function clearProfileCache() {
+  cachedProfile = null;
+  cachedUserId = null;
+}
+
+export async function getProfile(forceRefresh = false): Promise<UserProfile | null> {
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      // No session = not logged in, not an error
+      clearProfileCache();
       return null;
     }
 
-    // Simple query first — no join
+    // Return cached if same user and not forcing refresh
+    if (!forceRefresh && cachedProfile && cachedUserId === user.id) {
+      return cachedProfile;
+    }
+
+    // Fetch profile + org in parallel where possible
     const { data: profile, error: profileError } = await supabase.from("profiles")
       .select("*")
       .eq("id", user.id)
       .single();
 
-    if (profileError) {
+    if (profileError || !profile) {
       console.error("Profile error:", profileError);
       return null;
     }
 
-    if (!profile) return null;
-
-    // Get org name and slug separately if org_id exists
-    let orgName: string | undefined;
-    let orgSlug: string | undefined;
-    if (profile.org_id) {
-      const { data: org } = await supabase.from("organizations")
-        .select("name, slug")
-        .eq("id", profile.org_id)
-        .single();
-      orgName = org?.name;
-      orgSlug = org?.slug;
-    }
-
-    // Fetch assignments for non-admin roles (via API to bypass RLS)
-    let assignments: UserAssignment[] | undefined;
+    // Get org info and assignments in parallel
     const role = profile.role as UserProfile["role"];
-    if (role !== "org_admin" && role !== "super_admin") {
-      try {
-        const res = await authFetch("/api/users", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "get_assignments", userId: user.id }),
-        });
-        const assignData = await res.json();
-        assignments = Array.isArray(assignData)
-          ? assignData.map((a: Record<string, unknown>) => ({
-              spaceId: a.space_id as string,
-              unitId: a.unit_id as string | null,
-            }))
-          : [];
-      } catch {
-        assignments = [];
-      }
+    const needsOrg = !!profile.org_id;
+    const needsAssignments = role !== "org_admin" && role !== "super_admin";
+
+    const [orgResult, assignResult] = await Promise.all([
+      needsOrg
+        ? supabase.from("organizations").select("name, slug").eq("id", profile.org_id).single()
+        : Promise.resolve({ data: null }),
+      needsAssignments
+        ? authFetch("/api/users", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "get_assignments", userId: user.id }),
+          }).then((r) => r.json()).catch(() => [])
+        : Promise.resolve(undefined),
+    ]);
+
+    const orgName = orgResult.data?.name;
+    const orgSlug = orgResult.data?.slug;
+    let assignments: UserAssignment[] | undefined;
+    if (needsAssignments) {
+      assignments = Array.isArray(assignResult)
+        ? assignResult.map((a: Record<string, unknown>) => ({
+            spaceId: a.space_id as string,
+            unitId: a.unit_id as string | null,
+          }))
+        : [];
     }
 
-    return {
+    const userProfile: UserProfile = {
       id: profile.id,
       email: profile.email,
       name: profile.name,
@@ -114,6 +123,12 @@ export async function getProfile(): Promise<UserProfile | null> {
       mustResetPassword: profile.must_reset_password || false,
       assignments,
     };
+
+    // Cache it
+    cachedProfile = userProfile;
+    cachedUserId = user.id;
+
+    return userProfile;
   } catch (err) {
     console.error("getProfile error:", err);
     return null;
