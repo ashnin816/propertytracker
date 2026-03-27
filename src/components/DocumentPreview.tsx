@@ -13,8 +13,9 @@ export default function DocumentPreview({
   document: doc,
   onClose,
 }: DocumentPreviewProps) {
-  const isImage = doc.fileType.startsWith("image/");
-  const isPdf = doc.fileType === "application/pdf";
+  const isDemo = !doc.fileUrl || doc.fileUrl === "demo";
+  const isImage = !isDemo && doc.fileType.startsWith("image/");
+  const isPdf = !isDemo && doc.fileType === "application/pdf";
 
   return (
     <div
@@ -33,6 +34,7 @@ export default function DocumentPreview({
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            {!isDemo && (
             <a
               href={doc.fileUrl}
               download={doc.name}
@@ -52,6 +54,7 @@ export default function DocumentPreview({
                 />
               </svg>
             </a>
+            )}
             <button
               onClick={onClose}
               className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
@@ -74,7 +77,25 @@ export default function DocumentPreview({
         </div>
 
         <div className="flex-1 overflow-auto p-4 min-h-0">
-          {isImage ? (
+          {isDemo ? (
+            <div>
+              {doc.extractedText ? (
+                <div className="p-5 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                  <div className="flex items-center gap-2 mb-3">
+                    <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Document Content</span>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{doc.extractedText}</p>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-400">
+                  <p className="text-sm">No content available for this demo document</p>
+                </div>
+              )}
+            </div>
+          ) : isImage ? (
             <div>
               <img
                 src={doc.fileUrl}
