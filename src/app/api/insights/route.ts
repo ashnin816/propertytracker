@@ -114,11 +114,10 @@ export async function GET(req: NextRequest) {
 
     if (expiry) {
       const expiryDate = parseExpiryToDate(expiry);
-      console.log("Doc:", doc.name, "expiry:", expiry, "parsed:", expiryDate?.toISOString(), "future:", expiryDate ? expiryDate.getTime() > now.getTime() : false);
       if (expiryDate && expiryDate.getTime() > now.getTime()) {
         const key = `${doc.item_id}-${(docType || "unknown").toLowerCase()}`;
         const existing = latestExpiry[key];
-        // Keep only the latest expiry per asset+type
+        // Keep the latest (furthest out) expiry — newer doc replaces old one
         if (!existing || expiryDate.getTime() > existing.expiryDate.getTime()) {
           const diff = expiryDate.getTime() - now.getTime();
           latestExpiry[key] = {
@@ -133,9 +132,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Filter to 90 days
-  console.log("latestExpiry entries:", Object.keys(latestExpiry).length);
   for (const entry of Object.values(latestExpiry)) {
-    console.log("Entry:", entry.docName, "days:", entry.daysRemaining, "passes:", entry.daysRemaining <= 90);
     if (entry.daysRemaining <= 90) {
       expiring.push({
         docId: entry.docId, docName: entry.docName,
