@@ -10,9 +10,10 @@ interface AddItemModalProps {
   onAdd: (name: string, icon: string, photoUrl: string | null) => void | Promise<void>;
   onClose: () => void;
   spaceType?: string;
+  existingIcons?: string[];
 }
 
-export default function AddItemModal({ onAdd, onClose, spaceType }: AddItemModalProps) {
+export default function AddItemModal({ onAdd, onClose, spaceType, existingIcons = [] }: AddItemModalProps) {
   const [view, setView] = useState<"presets" | "custom">("presets");
   const [customName, setCustomName] = useState("");
   const [customPhoto, setCustomPhoto] = useState<string | null>(null);
@@ -22,7 +23,8 @@ export default function AddItemModal({ onAdd, onClose, spaceType }: AddItemModal
   const [searchQuery, setSearchQuery] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const availablePresets = spaceType ? getPresetsForSpaceType(spaceType) : ITEM_PRESETS;
+  const existingSet = new Set(existingIcons);
+  const availablePresets = (spaceType ? getPresetsForSpaceType(spaceType) : ITEM_PRESETS).filter((p) => !existingSet.has(p.key));
   const categories = [...new Set(availablePresets.map((p) => p.category))];
   const filteredPresets = searchQuery
     ? availablePresets.filter((p) =>

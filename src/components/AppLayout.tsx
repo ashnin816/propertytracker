@@ -1622,6 +1622,17 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                   )}
                 </div>
               ) : (
+                <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Assets ({items.length})</span>
+                  {canEditStructure && (
+                    <button onClick={() => setShowAddItem(true)}
+                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-medium cursor-pointer no-min-size">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                      Add Asset
+                    </button>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {sortItems(items).map((item) => {
                     const preset = item.icon !== "custom" && !item.icon.startsWith("icon-") ? getItemPreset(item.icon) : null;
@@ -1661,7 +1672,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                 </div>
               )}
 
-              {canEditStructure && items.length > 0 && (
+              {false && canEditStructure && items.length > 0 && (
                 <div className="flex justify-center mt-6">
                   <button onClick={() => setShowAddItem(true)}
                     className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-medium cursor-pointer no-min-size">
@@ -1833,7 +1844,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
 
       {/* Modals */}
       {showAddSpace && <AddSpaceModal onAdd={handleAddSpace} onClose={() => setShowAddSpace(false)} />}
-      {showAddItem && selectedSpace && <AddItemModal onAdd={handleAddItem} onClose={() => setShowAddItem(false)} spaceType={selectedSpace.icon} />}
+      {showAddItem && selectedSpace && <AddItemModal onAdd={handleAddItem} onClose={() => setShowAddItem(false)} spaceType={selectedSpace.icon} existingIcons={items.map((i) => i.icon)} />}
       {showDeleteSpace && selectedSpace && (
         <DeleteModal title={`Delete "${selectedSpace.name}"?`} message="This space and everything inside it will be permanently removed."
           warning={items.length > 0 ? `${items.length} item${items.length !== 1 ? "s" : ""} and all their documents will be deleted.` : undefined}
