@@ -1903,34 +1903,62 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   );
 }
 
-// Custom asset form with live icon preview
+// Custom asset form with live icon preview and icon picker
 function CustomAssetForm({ customName, onNameChange, onAdd, onCancel, findIcon }: {
   customName: string; onNameChange: (v: string) => void;
-  onAdd: () => void; onCancel: () => void; findIcon: (name: string) => string;
+  onAdd: (iconOverride?: string) => void; onCancel: () => void; findIcon: (name: string) => string;
 }) {
-  const matchedIcon = customName.trim() ? findIcon(customName.trim()) : "custom";
-  const matchedPreset = matchedIcon !== "custom" ? getItemPreset(matchedIcon) : null;
+  const [overrideIcon, setOverrideIcon] = useState<string | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+
+  const autoIcon = customName.trim() ? findIcon(customName.trim()) : "custom";
+  const activeIcon = overrideIcon || autoIcon;
+  const activePreset = activeIcon !== "custom" ? getItemPreset(activeIcon) : null;
+
+  // Generic icon SVG at full size to match preset icons
+  const genericSvg = `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="8" y="8" width="48" height="48" rx="12" fill="#94a3b8"/>
+    <path d="M32 22v20M22 32h20" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  </svg>`;
+
   return (
     <div className="rounded-2xl p-4 bg-white dark:bg-[#1a2332] shadow-md border-2 border-dashed border-blue-400 dark:border-blue-600">
-      {matchedPreset ? (
-        <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: matchedPreset.svg }} />
-      ) : (
-        <div className="w-10 h-10 mb-2 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+      {/* Clickable icon */}
+      <button onClick={() => setShowPicker(!showPicker)} className="cursor-pointer mb-2 relative group" title="Change icon">
+        <div className="w-10 h-10" dangerouslySetInnerHTML={{ __html: activePreset?.svg || genericSvg }} />
+        <div className="absolute inset-0 bg-black/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
           </svg>
         </div>
+      </button>
+
+      {/* Icon picker dropdown */}
+      {showPicker && (
+        <div className="mb-2 grid grid-cols-5 gap-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-xl max-h-32 overflow-y-auto">
+          {ITEM_PRESETS.slice(0, 30).map((p) => (
+            <button key={p.key} onClick={() => { setOverrideIcon(p.key); setShowPicker(false); }}
+              title={p.label}
+              className={`w-8 h-8 rounded-lg cursor-pointer transition-all ${activeIcon === p.key ? "ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30" : "hover:bg-gray-200 dark:hover:bg-gray-700"}`}>
+              <div className="w-8 h-8" dangerouslySetInnerHTML={{ __html: p.svg }} />
+            </button>
+          ))}
+        </div>
       )}
-      <input type="text" value={customName} onChange={(e) => onNameChange(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") onAdd(); if (e.key === "Escape") onCancel(); }}
+
+      <input type="text" value={customName} onChange={(e) => { onNameChange(e.target.value); if (!overrideIcon) setOverrideIcon(null); }}
+        onKeyDown={(e) => { if (e.key === "Enter") onAdd(overrideIcon || undefined); if (e.key === "Escape") onCancel(); }}
         placeholder="Asset name..."
         autoFocus
         className="w-full text-sm font-semibold dark:text-white bg-transparent outline-none mb-1 placeholder-gray-400" />
-      {matchedPreset && customName.trim() && (
-        <p className="text-[10px] text-blue-500 mb-1">Matched: {matchedPreset.label} icon</p>
+      {activePreset && customName.trim() && !overrideIcon && (
+        <p className="text-[10px] text-blue-500 mb-1">Auto: {activePreset.label} icon · <button onClick={() => setShowPicker(true)} className="underline cursor-pointer">change</button></p>
+      )}
+      {overrideIcon && activePreset && (
+        <p className="text-[10px] text-blue-500 mb-1">{activePreset.label} icon · <button onClick={() => { setOverrideIcon(null); setShowPicker(false); }} className="underline cursor-pointer">reset</button></p>
       )}
       <div className="flex items-center gap-2">
-        <button onClick={onAdd} disabled={!customName.trim()}
+        <button onClick={() => onAdd(overrideIcon || undefined)} disabled={!customName.trim()}
           className="text-xs font-medium text-blue-600 dark:text-blue-400 cursor-pointer disabled:opacity-40">Add</button>
         <button onClick={onCancel}
           className="text-xs text-gray-400 cursor-pointer">Cancel</button>
@@ -2008,9 +2036,9 @@ function QuickSetup({ spaceIcon, spaceName, onAdd }: {
     return match?.key || "custom";
   }
 
-  function addCustom() {
+  function addCustom(iconOverride?: string) {
     if (!customName.trim()) return;
-    const icon = findIconForName(customName.trim());
+    const icon = iconOverride || findIconForName(customName.trim());
     setCustomItems((prev) => [...prev, { name: customName.trim(), icon }]);
     setCustomName("");
     setShowCustom(false);
