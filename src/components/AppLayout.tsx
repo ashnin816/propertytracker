@@ -1964,7 +1964,7 @@ function QuickSetup({ spaceIcon, spaceName, onAdd }: {
   // Auto-suggest icon from preset labels
   // Keyword aliases for better auto-icon matching
   const iconAliases: Record<string, string[]> = {
-    vehicle: ["car", "truck", "suv", "auto", "automobile", "van", "vehicle"],
+    engine: ["car", "truck", "suv", "auto", "automobile", "van", "vehicle", "engine", "motor"],
     hvac: ["hvac", "ac", "air condition", "heating", "furnace", "heat pump", "thermostat"],
     "water-heater": ["water heater", "hot water", "boiler", "tankless"],
     dishwasher: ["dish", "dishwasher"],
@@ -1972,14 +1972,25 @@ function QuickSetup({ spaceIcon, spaceName, onAdd }: {
     washer: ["washer", "washing machine", "laundry"],
     dryer: ["dryer", "clothes dryer"],
     oven: ["oven", "stove", "range", "cooktop"],
-    "garage-door": ["garage", "garage door"],
+    microwave: ["microwave"],
+    lawnmower: ["lawn", "mower", "yard", "landscap"],
     pool: ["pool", "swimming", "spa", "hot tub"],
-    "lawn-mower": ["lawn", "mower", "yard", "landscap"],
+    grill: ["grill", "bbq", "barbecue"],
     roof: ["roof", "roofing", "shingle"],
-    generator: ["generator", "backup power"],
-    "security-system": ["security", "alarm", "camera", "surveillance"],
-    "smoke-detector": ["smoke", "fire", "detector", "carbon monoxide", "co2"],
-    boat: ["boat", "marine", "watercraft", "jet ski"],
+    plumbing: ["plumb", "pipe", "drain", "faucet", "toilet", "sink"],
+    electrical: ["electric", "wiring", "outlet", "breaker", "panel"],
+    security: ["security", "alarm", "camera", "surveillance"],
+    "fire-system": ["smoke", "fire", "detector", "carbon monoxide", "sprinkler"],
+    tv: ["tv", "television", "monitor", "screen"],
+    computer: ["computer", "laptop", "desktop", "pc"],
+    furniture: ["furniture", "couch", "sofa", "bed", "table", "cabinet"],
+    tires: ["tire", "wheel"],
+    brakes: ["brake"],
+    battery: ["battery"],
+    "boat-engine": ["boat", "marine", "watercraft", "jet ski"],
+    printer: ["printer", "copier", "scanner"],
+    desk: ["desk", "workstation"],
+    chair: ["chair", "seat"],
   };
 
   function findIconForName(name: string): string {
