@@ -1,3 +1,5 @@
+import { authFetch } from "./supabase";
+
 export interface AnalysisResult {
   name: string | null;
   extractedText: string;
@@ -18,7 +20,7 @@ export async function analyzeDocument(
     sendMimeType = "text/plain";
   }
 
-  const response = await fetch("/api/analyze", {
+  const response = await authFetch("/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

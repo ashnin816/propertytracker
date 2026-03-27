@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, ReactNode } from "react";
 import { getDocument } from "@/lib/supabase-storage";
+import { authFetch } from "@/lib/supabase";
 import { Document } from "@/lib/types";
 import DocumentPreview from "./DocumentPreview";
 
@@ -47,7 +48,7 @@ export default function AskAI({ documents, onClose, onNavigateToItem }: AskAIPro
     setLoading(true);
 
     try {
-      const response = await fetch("/api/chat", {
+      const response = await authFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, documents }),

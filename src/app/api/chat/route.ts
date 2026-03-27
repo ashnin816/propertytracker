@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCallerProfile } from "@/lib/api-auth";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
+    const caller = await getCallerProfile(req);
+    if (!caller) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { question, documents } = await req.json();
 
     const apiKey = process.env.CLAUDE_API_KEY;
