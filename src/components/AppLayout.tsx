@@ -40,6 +40,7 @@ import { useAuth } from "./AuthProvider";
 import TeamPanel from "./TeamPanel";
 import InboxPanel from "./InboxPanel";
 import InsightsPanel from "./InsightsPanel";
+import WelcomeWizard from "./WelcomeWizard";
 import RenameModal from "./RenameModal";
 import BulkUnitsModal from "./BulkUnitsModal";
 
@@ -1278,21 +1279,19 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                     <p className="text-sm text-gray-400">Contact your organization admin to get access.</p>
                   </div>
                 ) : (
-                  /* Admin with no properties */
-                  <div className="text-center">
-                    <div className="w-24 h-24 mx-auto mb-6 text-blue-500 dark:text-blue-400 relative">
-                      <div className="absolute inset-0 bg-blue-500/10 rounded-full animate-pulse" />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <svg className="w-14 h-14" viewBox="0 0 48 48" fill="none"><path d="M24 6L4 22h6v18a2 2 0 002 2h24a2 2 0 002-2V22h6L24 6z" fill="currentColor" opacity="0.2"/><path d="M24 6L4 22h6v18a2 2 0 002 2h24a2 2 0 002-2V22h6L24 6z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      </div>
-                    </div>
-                    <h1 className="text-2xl font-bold mb-2 dark:text-white">Welcome to PropertyTracker+</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mb-8">Manage documents for all your properties.</p>
-                    <button onClick={() => setShowAddSpace(true)}
-                      className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all font-semibold shadow-lg shadow-blue-500/25 cursor-pointer">
-                      Get Started
-                    </button>
-                  </div>
+                  /* Admin with no properties — show wizard */
+                  <WelcomeWizard
+                    orgName={authUser?.orgName}
+                    onComplete={async (name, icon, assets) => {
+                      const space = await createSpace(name, icon);
+                      for (const asset of assets) {
+                        await createItem(space.id, asset.name, asset.icon, null);
+                      }
+                      await refreshSpaces();
+                      selectSpace(space.id);
+                    }}
+                    onDismiss={() => setShowAddSpace(true)}
+                  />
                 )
               ) : (
                 <div className="w-full max-w-md">
@@ -1457,7 +1456,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                                   dangerouslySetInnerHTML={{ __html: (preset?.svg || ci?.svg)! }} />
                               ) : (
                                 <div className="w-3/4 h-3/4 group-hover:scale-110 transition-transform duration-200"
-                                  dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 64 64" fill="none"><rect x="8" y="8" width="48" height="48" rx="10" fill="#94a3b8"/><path d="M32 22v20M22 32h20" stroke="white" stroke-width="3.5" stroke-linecap="round"/></svg>` }} />
+                                  dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 64 64" fill="none"><path d="M10 20a4 4 0 014-4h12l4 4h20a4 4 0 014 4v24a4 4 0 01-4 4H14a4 4 0 01-4-4V20z" fill="#94a3b8"/><path d="M10 24h44v24a4 4 0 01-4 4H14a4 4 0 01-4-4V24z" fill="#7e8a9a"/></svg>` }} />
                               )}
                             </div>
                           )}
@@ -1968,8 +1967,8 @@ function CustomAssetForm({ customName, onNameChange, onAdd, onCancel, findIcon }
 
   // Generic icon SVG at full size to match preset icons
   const genericSvg = `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="8" y="8" width="48" height="48" rx="10" fill="#94a3b8"/>
-    <path d="M32 22v20M22 32h20" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M10 20a4 4 0 014-4h12l4 4h20a4 4 0 014 4v24a4 4 0 01-4 4H14a4 4 0 01-4-4V20z" fill="#94a3b8"/>
+    <path d="M10 24h44v24a4 4 0 01-4 4H14a4 4 0 01-4-4V24z" fill="#7e8a9a"/>
   </svg>`;
 
   return (
@@ -2174,7 +2173,7 @@ function QuickSetup({ spaceIcon, spaceName, onAdd }: {
         ) : (
           <button onClick={() => setShowCustom(true)}
             className="rounded-2xl p-4 text-left bg-white dark:bg-[#1a2332] shadow-md hover:shadow-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-600 transition-all cursor-pointer no-min-size active:scale-95">
-            <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 64 64" fill="none"><rect x="8" y="8" width="48" height="48" rx="10" fill="#cbd5e1"/><path d="M32 22v20M22 32h20" stroke="white" stroke-width="3.5" stroke-linecap="round"/></svg>` }} />
+            <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 64 64" fill="none"><path d="M10 20a4 4 0 014-4h12l4 4h20a4 4 0 014 4v24a4 4 0 01-4 4H14a4 4 0 01-4-4V20z" fill="#cbd5e1"/><path d="M10 24h44v24a4 4 0 01-4 4H14a4 4 0 01-4-4V24z" fill="#b0bec5"/></svg>` }} />
             <p className="text-sm font-semibold text-gray-400">Custom...</p>
           </button>
         )}
