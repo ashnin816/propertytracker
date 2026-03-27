@@ -1457,7 +1457,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                                   dangerouslySetInnerHTML={{ __html: (preset?.svg || ci?.svg)! }} />
                               ) : (
                                 <div className="w-3/4 h-3/4 group-hover:scale-110 transition-transform duration-200"
-                                  dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="14" fill="#94a3b8"/><path d="M32 18v28M18 32h28" stroke="white" stroke-width="4" stroke-linecap="round"/></svg>` }} />
+                                  dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 64 64" fill="none"><rect x="8" y="8" width="48" height="48" rx="10" fill="#94a3b8"/><path d="M32 22v20M22 32h20" stroke="white" stroke-width="3.5" stroke-linecap="round"/></svg>` }} />
                               )}
                             </div>
                           )}
@@ -1968,8 +1968,8 @@ function CustomAssetForm({ customName, onNameChange, onAdd, onCancel, findIcon }
 
   // Generic icon SVG at full size to match preset icons
   const genericSvg = `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="64" height="64" rx="14" fill="#94a3b8"/>
-    <path d="M32 20v24M20 32h24" stroke="white" stroke-width="4" stroke-linecap="round"/>
+    <rect x="8" y="8" width="48" height="48" rx="10" fill="#94a3b8"/>
+    <path d="M32 22v20M22 32h20" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
   </svg>`;
 
   return (
@@ -2174,7 +2174,7 @@ function QuickSetup({ spaceIcon, spaceName, onAdd }: {
         ) : (
           <button onClick={() => setShowCustom(true)}
             className="rounded-2xl p-4 text-left bg-white dark:bg-[#1a2332] shadow-md hover:shadow-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-600 transition-all cursor-pointer no-min-size active:scale-95">
-            <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="14" fill="#cbd5e1"/><path d="M32 20v24M20 32h24" stroke="white" stroke-width="4" stroke-linecap="round"/></svg>` }} />
+            <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 64 64" fill="none"><rect x="8" y="8" width="48" height="48" rx="10" fill="#cbd5e1"/><path d="M32 22v20M22 32h20" stroke="white" stroke-width="3.5" stroke-linecap="round"/></svg>` }} />
             <p className="text-sm font-semibold text-gray-400">Custom...</p>
           </button>
         )}
