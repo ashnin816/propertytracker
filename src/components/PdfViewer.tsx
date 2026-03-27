@@ -58,14 +58,24 @@ export default function PdfViewer({ dataUrl }: PdfViewerProps) {
         const pdfjs = await loadPdfJs();
         if (!pdfjs || cancelled) return;
 
-        const base64 = dataUrl.split(",")[1];
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-          bytes[i] = binary.charCodeAt(i);
+        let pdfData: Uint8Array | string;
+        if (dataUrl.startsWith("data:")) {
+          // Base64 data URL
+          const base64 = dataUrl.split(",")[1];
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          pdfData = bytes;
+        } else {
+          // Remote URL — fetch the bytes
+          const res = await fetch(dataUrl);
+          const buffer = await res.arrayBuffer();
+          pdfData = new Uint8Array(buffer);
         }
 
-        const pdf = await pdfjs.getDocument({ data: bytes }).promise;
+        const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
         if (cancelled) return;
 
         setPageCount(pdf.numPages);
