@@ -1441,7 +1441,8 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                                 <div className="w-3/4 h-3/4 group-hover:scale-110 transition-transform duration-200"
                                   dangerouslySetInnerHTML={{ __html: (preset?.svg || ci?.svg)! }} />
                               ) : (
-                                <span className="text-5xl">{emoji || "📦"}</span>
+                                <div className="w-3/4 h-3/4 group-hover:scale-110 transition-transform duration-200"
+                                  dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="14" fill="#94a3b8"/><path d="M32 18v28M18 32h28" stroke="white" stroke-width="4" stroke-linecap="round"/></svg>` }} />
                               )}
                             </div>
                           )}
