@@ -1903,6 +1903,42 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   );
 }
 
+// Custom asset form with live icon preview
+function CustomAssetForm({ customName, onNameChange, onAdd, onCancel, findIcon }: {
+  customName: string; onNameChange: (v: string) => void;
+  onAdd: () => void; onCancel: () => void; findIcon: (name: string) => string;
+}) {
+  const matchedIcon = customName.trim() ? findIcon(customName.trim()) : "custom";
+  const matchedPreset = matchedIcon !== "custom" ? getItemPreset(matchedIcon) : null;
+  return (
+    <div className="rounded-2xl p-4 bg-white dark:bg-[#1a2332] shadow-md border-2 border-dashed border-blue-400 dark:border-blue-600">
+      {matchedPreset ? (
+        <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: matchedPreset.svg }} />
+      ) : (
+        <div className="w-10 h-10 mb-2 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+        </div>
+      )}
+      <input type="text" value={customName} onChange={(e) => onNameChange(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") onAdd(); if (e.key === "Escape") onCancel(); }}
+        placeholder="Asset name..."
+        autoFocus
+        className="w-full text-sm font-semibold dark:text-white bg-transparent outline-none mb-1 placeholder-gray-400" />
+      {matchedPreset && customName.trim() && (
+        <p className="text-[10px] text-blue-500 mb-1">Matched: {matchedPreset.label} icon</p>
+      )}
+      <div className="flex items-center gap-2">
+        <button onClick={onAdd} disabled={!customName.trim()}
+          className="text-xs font-medium text-blue-600 dark:text-blue-400 cursor-pointer disabled:opacity-40">Add</button>
+        <button onClick={onCancel}
+          className="text-xs text-gray-400 cursor-pointer">Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 // Quick setup component — multi-select presets + custom asset with auto-icon
 function QuickSetup({ spaceIcon, spaceName, onAdd }: {
   spaceIcon: string;
@@ -1926,8 +1962,35 @@ function QuickSetup({ spaceIcon, spaceName, onAdd }: {
   }
 
   // Auto-suggest icon from preset labels
+  // Keyword aliases for better auto-icon matching
+  const iconAliases: Record<string, string[]> = {
+    vehicle: ["car", "truck", "suv", "auto", "automobile", "van", "vehicle"],
+    hvac: ["hvac", "ac", "air condition", "heating", "furnace", "heat pump", "thermostat"],
+    "water-heater": ["water heater", "hot water", "boiler", "tankless"],
+    dishwasher: ["dish", "dishwasher"],
+    refrigerator: ["fridge", "refrigerator", "freezer"],
+    washer: ["washer", "washing machine", "laundry"],
+    dryer: ["dryer", "clothes dryer"],
+    oven: ["oven", "stove", "range", "cooktop"],
+    "garage-door": ["garage", "garage door"],
+    pool: ["pool", "swimming", "spa", "hot tub"],
+    "lawn-mower": ["lawn", "mower", "yard", "landscap"],
+    roof: ["roof", "roofing", "shingle"],
+    generator: ["generator", "backup power"],
+    "security-system": ["security", "alarm", "camera", "surveillance"],
+    "smoke-detector": ["smoke", "fire", "detector", "carbon monoxide", "co2"],
+    boat: ["boat", "marine", "watercraft", "jet ski"],
+  };
+
   function findIconForName(name: string): string {
     const lower = name.toLowerCase();
+    // Check aliases first
+    for (const [key, aliases] of Object.entries(iconAliases)) {
+      if (aliases.some((a) => lower.includes(a) || a.includes(lower))) {
+        return key;
+      }
+    }
+    // Fall back to label matching
     const match = ITEM_PRESETS.find((p) =>
       p.label.toLowerCase().includes(lower) || lower.includes(p.label.toLowerCase())
     );
@@ -2013,38 +2076,14 @@ function QuickSetup({ spaceIcon, spaceName, onAdd }: {
         })}
 
         {/* Add custom button / form */}
-        {showCustom ? (() => {
-          const matchedIcon = customName.trim() ? findIconForName(customName.trim()) : "custom";
-          const matchedPreset = matchedIcon !== "custom" ? getItemPreset(matchedIcon) : null;
-          return (
-            <div className="rounded-2xl p-4 bg-white dark:bg-[#1a2332] shadow-md border-2 border-dashed border-blue-400 dark:border-blue-600">
-              {/* Live icon preview */}
-              {matchedPreset ? (
-                <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: matchedPreset.svg }} />
-              ) : (
-                <div className="w-10 h-10 mb-2 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                  </svg>
-                </div>
-              )}
-              <input type="text" value={customName} onChange={(e) => setCustomName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") addCustom(); if (e.key === "Escape") setShowCustom(false); }}
-                placeholder="Asset name..."
-                autoFocus
-                className="w-full text-sm font-semibold dark:text-white bg-transparent outline-none mb-1 placeholder-gray-400" />
-              {matchedPreset && customName.trim() && (
-                <p className="text-[10px] text-blue-500 mb-1">Matched: {matchedPreset.label} icon</p>
-              )}
-              <div className="flex items-center gap-2">
-                <button onClick={addCustom} disabled={!customName.trim()}
-                  className="text-xs font-medium text-blue-600 dark:text-blue-400 cursor-pointer disabled:opacity-40">Add</button>
-                <button onClick={() => { setShowCustom(false); setCustomName(""); }}
-                  className="text-xs text-gray-400 cursor-pointer">Cancel</button>
-              </div>
-            </div>
-          );
-        })()
+        {showCustom ? (
+          <CustomAssetForm
+            customName={customName}
+            onNameChange={setCustomName}
+            onAdd={addCustom}
+            onCancel={() => { setShowCustom(false); setCustomName(""); }}
+            findIcon={findIconForName}
+          />
         ) : (
           <button onClick={() => setShowCustom(true)}
             className="rounded-2xl p-4 text-left bg-white dark:bg-[#1a2332] shadow-md hover:shadow-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-600 transition-all cursor-pointer no-min-size active:scale-95">
