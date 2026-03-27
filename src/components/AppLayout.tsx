@@ -2013,20 +2013,38 @@ function QuickSetup({ spaceIcon, spaceName, onAdd }: {
         })}
 
         {/* Add custom button / form */}
-        {showCustom ? (
-          <div className="rounded-2xl p-4 bg-white dark:bg-[#1a2332] shadow-md border-2 border-dashed border-gray-300 dark:border-gray-600">
-            <input type="text" value={customName} onChange={(e) => setCustomName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") addCustom(); if (e.key === "Escape") setShowCustom(false); }}
-              placeholder="Asset name..."
-              autoFocus
-              className="w-full text-sm font-semibold dark:text-white bg-transparent outline-none mb-2 placeholder-gray-400" />
-            <div className="flex items-center gap-2">
-              <button onClick={addCustom} disabled={!customName.trim()}
-                className="text-xs font-medium text-blue-600 dark:text-blue-400 cursor-pointer disabled:opacity-40">Add</button>
-              <button onClick={() => { setShowCustom(false); setCustomName(""); }}
-                className="text-xs text-gray-400 cursor-pointer">Cancel</button>
+        {showCustom ? (() => {
+          const matchedIcon = customName.trim() ? findIconForName(customName.trim()) : "custom";
+          const matchedPreset = matchedIcon !== "custom" ? getItemPreset(matchedIcon) : null;
+          return (
+            <div className="rounded-2xl p-4 bg-white dark:bg-[#1a2332] shadow-md border-2 border-dashed border-blue-400 dark:border-blue-600">
+              {/* Live icon preview */}
+              {matchedPreset ? (
+                <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: matchedPreset.svg }} />
+              ) : (
+                <div className="w-10 h-10 mb-2 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                </div>
+              )}
+              <input type="text" value={customName} onChange={(e) => setCustomName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") addCustom(); if (e.key === "Escape") setShowCustom(false); }}
+                placeholder="Asset name..."
+                autoFocus
+                className="w-full text-sm font-semibold dark:text-white bg-transparent outline-none mb-1 placeholder-gray-400" />
+              {matchedPreset && customName.trim() && (
+                <p className="text-[10px] text-blue-500 mb-1">Matched: {matchedPreset.label} icon</p>
+              )}
+              <div className="flex items-center gap-2">
+                <button onClick={addCustom} disabled={!customName.trim()}
+                  className="text-xs font-medium text-blue-600 dark:text-blue-400 cursor-pointer disabled:opacity-40">Add</button>
+                <button onClick={() => { setShowCustom(false); setCustomName(""); }}
+                  className="text-xs text-gray-400 cursor-pointer">Cancel</button>
+              </div>
             </div>
-          </div>
+          );
+        })()
         ) : (
           <button onClick={() => setShowCustom(true)}
             className="rounded-2xl p-4 text-left bg-white dark:bg-[#1a2332] shadow-md hover:shadow-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-600 transition-all cursor-pointer no-min-size active:scale-95">
