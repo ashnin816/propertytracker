@@ -275,31 +275,21 @@ export async function POST(req: NextRequest) {
     const toEmail = to ? (to.match(/<(.+?)>/) || [null, to])[1]?.trim().toLowerCase() || to.trim().toLowerCase() : "";
     const toSlug = toEmail.split("@")[0];
 
-    let orgId: string | null = null;
-
-    if (toSlug) {
-      const { data: org } = await admin.from("organizations")
-        .select("id")
-        .eq("slug", toSlug)
-        .single();
-      if (org) orgId = org.id;
+    if (!toSlug) {
+      return NextResponse.json({ error: "No recipient address" }, { status: 400 });
     }
 
-    // Fallback: look up org by sender email
-    if (!orgId) {
-      const { data: profile } = await admin.from("profiles")
-        .select("org_id, status")
-        .eq("email", senderEmail)
-        .single();
-      if (profile?.status === "inactive") {
-        return NextResponse.json({ error: "Account deactivated" }, { status: 403 });
-      }
-      orgId = profile?.org_id || null;
-    }
+    const { data: org } = await admin.from("organizations")
+      .select("id")
+      .eq("slug", toSlug)
+      .single();
 
-    if (!orgId) {
-      console.log("No org found for to:", toEmail, "from:", senderEmail);
+    if (!org) {
+      console.log("No org found for slug:", toSlug, "from:", senderEmail);
       return NextResponse.json({ error: "Unknown recipient" }, { status: 403 });
+    }
+
+    const orgId = org.id;
     }
 
     let processed = 0;
