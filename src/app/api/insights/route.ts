@@ -92,12 +92,12 @@ export async function GET(req: NextRequest) {
   // Process documents for insights
   const now = new Date();
   const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
-  const expiring: { docId: string; docName: string; spaceName: string; itemName: string; expiryDate: string; daysRemaining: number }[] = [];
+  const expiring: { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; expiryDate: string; daysRemaining: number }[] = [];
   const typeCounts: Record<string, number> = {};
   const spacesWithInsurance = new Set<string>();
 
   // Track latest expiry per asset+type to avoid duplicates from replaced docs
-  const latestExpiry: Record<string, { docId: string; docName: string; spaceName: string; itemName: string; expiryDate: Date; daysRemaining: number }> = {};
+  const latestExpiry: Record<string, { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; expiryDate: Date; daysRemaining: number }> = {};
 
   for (const doc of docs || []) {
     const storedDetails = doc.details as Record<string, string> | null;
@@ -122,7 +122,8 @@ export async function GET(req: NextRequest) {
           const diff = expiryDate.getTime() - now.getTime();
           latestExpiry[key] = {
             docId: doc.id, docName: doc.name,
-            spaceName: spaceMap[item.spaceId] || "Unknown", itemName: item.name,
+            spaceId: item.spaceId, spaceName: spaceMap[item.spaceId] || "Unknown",
+            itemId: doc.item_id, itemName: item.name,
             expiryDate, daysRemaining: Math.ceil(diff / (24 * 60 * 60 * 1000)),
           };
         }
@@ -135,7 +136,8 @@ export async function GET(req: NextRequest) {
     if (entry.daysRemaining <= 90) {
       expiring.push({
         docId: entry.docId, docName: entry.docName,
-        spaceName: entry.spaceName, itemName: entry.itemName,
+        spaceId: entry.spaceId, spaceName: entry.spaceName,
+        itemId: entry.itemId, itemName: entry.itemName,
         expiryDate: entry.expiryDate.toISOString(),
         daysRemaining: entry.daysRemaining,
       });
@@ -146,7 +148,7 @@ export async function GET(req: NextRequest) {
 
   const missingInsurance = (spaces || [])
     .filter((s: { id: string }) => !spacesWithInsurance.has(s.id))
-    .map((s: { name: string }) => s.name);
+    .map((s: { id: string; name: string }) => ({ spaceId: s.id, name: s.name }));
 
   return NextResponse.json({
     counts,

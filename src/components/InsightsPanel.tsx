@@ -6,13 +6,18 @@ import { authFetch } from "@/lib/supabase";
 
 interface InsightsData {
   counts: { properties: number; units: number; assets: number; documents: number };
-  expiring: { docId: string; docName: string; spaceName: string; itemName: string; expiryDate: string; daysRemaining: number }[];
+  expiring: { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; expiryDate: string; daysRemaining: number }[];
   typeCounts: Record<string, number>;
-  missingInsurance: string[];
-  missingWarranty: { spaceName: string; itemName: string }[];
+  missingInsurance: { spaceId: string; name: string }[];
 }
 
-export default function InsightsPanel({ orgId: orgIdProp }: { orgId?: string | null }) {
+interface InsightsPanelProps {
+  orgId?: string | null;
+  onNavigateToItem?: (spaceId: string, itemId: string) => void;
+  onNavigateToSpace?: (spaceId: string) => void;
+}
+
+export default function InsightsPanel({ orgId: orgIdProp, onNavigateToItem, onNavigateToSpace }: InsightsPanelProps) {
   const { user } = useAuth();
   const effectiveOrgId = orgIdProp || user?.orgId;
   const [data, setData] = useState<InsightsData | null>(null);
@@ -106,7 +111,9 @@ export default function InsightsPanel({ orgId: orgIdProp }: { orgId?: string | n
           ) : (
             <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
               {data.expiring.map((item) => (
-                <div key={item.docId} className="px-5 py-3 flex items-center gap-3">
+                <div key={item.docId}
+                  onClick={() => onNavigateToItem?.(item.spaceId, item.itemId)}
+                  className={`px-5 py-3 flex items-center gap-3 ${onNavigateToItem ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03]" : ""} transition-colors`}>
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
                     item.daysRemaining <= 30 ? "bg-red-500" : item.daysRemaining <= 60 ? "bg-amber-500" : "bg-yellow-400"
                   }`} />
@@ -177,10 +184,12 @@ export default function InsightsPanel({ orgId: orgIdProp }: { orgId?: string | n
           </div>
           <div className="p-5">
             <div className="space-y-1.5">
-              {data.missingInsurance.map((name) => (
-                <div key={name} className="flex items-center gap-2">
+              {data.missingInsurance.map((item) => (
+                <div key={item.spaceId}
+                  onClick={() => onNavigateToSpace?.(item.spaceId)}
+                  className={`flex items-center gap-2 ${onNavigateToSpace ? "cursor-pointer hover:text-blue-600 dark:hover:text-blue-400" : ""} transition-colors`}>
                   <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300">{name}</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">{item.name}</span>
                 </div>
               ))}
             </div>

@@ -1236,7 +1236,11 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
 
           {/* HOME VIEW */}
           {view === "home" && (canAddProperties || canEditStructure) && spaces.length > 0 && (
-            <InsightsPanel orgId={mirrorOrgId || authUser?.orgId} />
+            <InsightsPanel
+              orgId={mirrorOrgId || authUser?.orgId}
+              onNavigateToItem={(spaceId, itemId) => { selectSpace(spaceId); setTimeout(() => selectItem(itemId), 300); }}
+              onNavigateToSpace={(spaceId) => selectSpace(spaceId)}
+            />
           )}
           {view === "home" && (!canAddProperties && !canEditStructure || spaces.length === 0) && (
             <div className="flex-1 flex items-center justify-center px-4">
