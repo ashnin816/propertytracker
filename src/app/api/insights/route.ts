@@ -133,7 +133,9 @@ export async function GET(req: NextRequest) {
   }
 
   // Filter to 90 days
+  console.log("latestExpiry entries:", Object.keys(latestExpiry).length);
   for (const entry of Object.values(latestExpiry)) {
+    console.log("Entry:", entry.docName, "days:", entry.daysRemaining, "passes:", entry.daysRemaining <= 90);
     if (entry.daysRemaining <= 90) {
       expiring.push({
         docId: entry.docId, docName: entry.docName,
