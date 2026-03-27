@@ -1073,6 +1073,17 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
             </div>
           )}
 
+          {/* Units view actions in header */}
+          {view === "units" && canEditStructure && (
+            <div className="flex items-center gap-2 no-min-size">
+              <button onClick={() => setShowAddItem(true)}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-medium cursor-pointer no-min-size">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                <span className="hidden sm:inline">Add Asset</span>
+              </button>
+            </div>
+          )}
+
           {/* Mobile search icon */}
           <button onClick={() => {
             const el = document.getElementById("mobile-search");
@@ -1546,16 +1557,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
               {/* Building-level assets */}
               {items.length > 0 && (
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Building Assets</span>
-                    {canEditStructure && (
-                      <button onClick={() => setShowAddItem(true)}
-                        className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-medium cursor-pointer no-min-size">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-                        Add Asset
-                      </button>
-                    )}
-                  </div>
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 block">Building Assets</span>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                     {sortItems(items).map((item) => {
                       const preset = item.icon !== "custom" && !item.icon.startsWith("icon-") ? getItemPreset(item.icon) : null;
