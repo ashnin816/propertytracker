@@ -83,9 +83,13 @@ export async function GET(req: NextRequest) {
     // --- Expiration Alerts ---
     const expiringDocs: { docId: string; docName: string; spaceName: string; itemName: string; expiryDate: string; daysRemaining: number; threshold: number }[] = [];
 
+    // Track latest expiry per asset+type — only alert on the newest doc
+    const latestByAssetType: Record<string, { docId: string; docName: string; spaceName: string; itemName: string; expiryDate: Date; daysRemaining: number; docType: string }> = {};
+
     for (const doc of docs || []) {
       const storedDetails = doc.details as Record<string, string> | null;
       const parsedDetails = parseDocDetails(doc.extracted_text);
+      const docType = storedDetails?.type || parsedDetails?.type || "unknown";
       const expiry = storedDetails?.expiration || storedDetails?.expiry || parsedDetails?.expiry;
       if (!expiry) continue;
       const expiryDate = parseExpiryToDate(expiry);
@@ -98,19 +102,31 @@ export async function GET(req: NextRequest) {
       const item = itemMap[doc.item_id];
       if (!item) continue;
 
-      // Find the matching threshold
+      const key = `${doc.item_id}-${docType.toLowerCase()}`;
+      const existing = latestByAssetType[key];
+      if (!existing || expiryDate.getTime() > existing.expiryDate.getTime()) {
+        latestByAssetType[key] = {
+          docId: doc.id, docName: doc.name,
+          spaceName: spaceMap[item.spaceId] || "Unknown", itemName: item.name,
+          expiryDate, daysRemaining, docType,
+        };
+      }
+    }
+
+    // Apply thresholds to the latest expiry per asset+type
+    for (const entry of Object.values(latestByAssetType)) {
       for (const threshold of THRESHOLDS) {
-        if (daysRemaining <= threshold) {
+        if (entry.daysRemaining <= threshold) {
           expiringDocs.push({
-            docId: doc.id,
-            docName: doc.name,
-            spaceName: spaceMap[item.spaceId] || "Unknown",
-            itemName: item.name,
-            expiryDate: expiryDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-            daysRemaining,
+            docId: entry.docId,
+            docName: entry.docName,
+            spaceName: entry.spaceName,
+            itemName: entry.itemName,
+            expiryDate: entry.expiryDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+            daysRemaining: entry.daysRemaining,
             threshold,
           });
-          break; // Only use the tightest threshold
+          break;
         }
       }
     }

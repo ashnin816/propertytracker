@@ -96,8 +96,10 @@ export async function GET(req: NextRequest) {
   const typeCounts: Record<string, number> = {};
   const spacesWithInsurance = new Set<string>();
 
+  // Track latest expiry per asset+type to avoid duplicates from replaced docs
+  const latestExpiry: Record<string, { docId: string; docName: string; spaceName: string; itemName: string; expiryDate: Date; daysRemaining: number }> = {};
+
   for (const doc of docs || []) {
-    // Prefer stored structured details from Claude, fall back to regex parsing
     const storedDetails = doc.details as Record<string, string> | null;
     const parsedDetails = parseDocDetails(doc.extracted_text);
     const docType = storedDetails?.type || parsedDetails?.type;
@@ -112,17 +114,31 @@ export async function GET(req: NextRequest) {
 
     if (expiry) {
       const expiryDate = parseExpiryToDate(expiry);
-      if (expiryDate) {
-        const diff = expiryDate.getTime() - now.getTime();
-        if (diff > 0 && diff < ninetyDaysMs) {
-          expiring.push({
+      if (expiryDate && expiryDate.getTime() > now.getTime()) {
+        const key = `${doc.item_id}-${(docType || "unknown").toLowerCase()}`;
+        const existing = latestExpiry[key];
+        // Keep only the latest expiry per asset+type
+        if (!existing || expiryDate.getTime() > existing.expiryDate.getTime()) {
+          const diff = expiryDate.getTime() - now.getTime();
+          latestExpiry[key] = {
             docId: doc.id, docName: doc.name,
             spaceName: spaceMap[item.spaceId] || "Unknown", itemName: item.name,
-            expiryDate: expiryDate.toISOString(),
-            daysRemaining: Math.ceil(diff / (24 * 60 * 60 * 1000)),
-          });
+            expiryDate, daysRemaining: Math.ceil(diff / (24 * 60 * 60 * 1000)),
+          };
         }
       }
+    }
+  }
+
+  // Filter to 90 days
+  for (const entry of Object.values(latestExpiry)) {
+    if (entry.daysRemaining <= 90) {
+      expiring.push({
+        docId: entry.docId, docName: entry.docName,
+        spaceName: entry.spaceName, itemName: entry.itemName,
+        expiryDate: entry.expiryDate.toISOString(),
+        daysRemaining: entry.daysRemaining,
+      });
     }
   }
 
