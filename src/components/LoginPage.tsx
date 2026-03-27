@@ -58,14 +58,14 @@ export default function LoginPage() {
             PropertyTracker+ helps property management companies organize warranties, receipts, contracts, and inspections across their entire portfolio — with AI that reads, names, and routes every document automatically.
           </p>
           <div className="flex items-center justify-center gap-4">
-            <button onClick={() => setShowLogin(true)}
-              className="px-8 py-3.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all font-semibold shadow-lg shadow-blue-500/25 cursor-pointer">
-              Get Started
-            </button>
             <a href="mailto:hello@propertytrackerplus.com"
-              className="px-8 py-3.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-white dark:hover:bg-gray-800 transition-all font-semibold cursor-pointer">
-              Request Demo
+              className="px-8 py-3.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all font-semibold shadow-lg shadow-blue-500/25 cursor-pointer">
+              Request a Demo
             </a>
+            <button onClick={() => setShowLogin(true)}
+              className="px-8 py-3.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-white dark:hover:bg-gray-800 transition-all font-semibold cursor-pointer">
+              Sign In
+            </button>
           </div>
         </div>
       </div>
@@ -138,11 +138,11 @@ export default function LoginPage() {
       <div className="max-w-6xl mx-auto px-6 pb-20">
         <div className="bg-blue-600 rounded-2xl p-10 text-center">
           <h2 className="text-2xl font-bold text-white mb-3">Ready to organize your properties?</h2>
-          <p className="text-blue-100 mb-6">Start your free trial — no credit card required.</p>
-          <button onClick={() => setShowLogin(true)}
-            className="px-8 py-3.5 bg-white text-blue-600 rounded-xl hover:bg-blue-50 active:scale-[0.98] transition-all font-semibold cursor-pointer shadow-lg">
-            Get Started Free
-          </button>
+          <p className="text-blue-100 mb-6">See how PropertyTracker+ can streamline your document management.</p>
+          <a href="mailto:hello@propertytrackerplus.com"
+            className="inline-block px-8 py-3.5 bg-white text-blue-600 rounded-xl hover:bg-blue-50 active:scale-[0.98] transition-all font-semibold cursor-pointer shadow-lg">
+            Request a Demo
+          </a>
         </div>
       </div>
 
