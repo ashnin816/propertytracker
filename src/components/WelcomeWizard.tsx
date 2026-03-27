@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SPACE_ICONS, getSpaceColors, getPresetsForSpaceType, ITEM_PRESETS, getItemPreset } from "@/lib/presets";
+import { SPACE_ICONS, getSpaceColors, getPresetsForSpaceType, getItemPreset } from "@/lib/presets";
 
 interface WelcomeWizardProps {
   onComplete: (spaceName: string, spaceIcon: string, assets: { name: string; icon: string }[]) => Promise<void>;
@@ -14,31 +14,12 @@ export default function WelcomeWizard({ onComplete, onDismiss, orgName }: Welcom
   const [spaceIcon, setSpaceIcon] = useState("residential");
   const [spaceName, setSpaceName] = useState("");
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
-  const [customAssets, setCustomAssets] = useState<{ name: string; icon: string }[]>([]);
-  const [showCustom, setShowCustom] = useState(false);
-  const [customName, setCustomName] = useState("");
   const [creating, setCreating] = useState(false);
 
   const selectedSpace = SPACE_ICONS.find((i) => i.key === spaceIcon) || SPACE_ICONS[0];
   const colors = getSpaceColors(spaceIcon);
-  const presets = getPresetsForSpaceType(spaceIcon).slice(0, 12);
-  const totalAssets = selectedAssets.size + customAssets.length + 1; // +1 for Property Documents
-
-  function findIconForName(name: string): string {
-    const lower = name.toLowerCase();
-    const match = ITEM_PRESETS.find((p) =>
-      p.label.toLowerCase().includes(lower) || lower.includes(p.label.toLowerCase())
-    );
-    return match?.key || "custom";
-  }
-
-  function addCustom() {
-    if (!customName.trim()) return;
-    const icon = findIconForName(customName.trim());
-    setCustomAssets((prev) => [...prev, { name: customName.trim(), icon }]);
-    setCustomName("");
-    setShowCustom(false);
-  }
+  const presets = getPresetsForSpaceType(spaceIcon).filter((p) => p.key !== "property-docs").slice(0, 12);
+  const totalAssets = selectedAssets.size + 1; // +1 for Property Documents
 
   async function handleComplete() {
     setCreating(true);
@@ -49,7 +30,6 @@ export default function WelcomeWizard({ onComplete, onDismiss, orgName }: Welcom
       const preset = presets.find((p) => p.key === key);
       if (preset) assets.push({ name: preset.label, icon: preset.key });
     }
-    assets.push(...customAssets);
     await onComplete(spaceName.trim(), spaceIcon, assets);
     setCreating(false);
   }
@@ -150,7 +130,7 @@ export default function WelcomeWizard({ onComplete, onDismiss, orgName }: Welcom
           <div className="animate-fade-in">
             <h2 className="text-2xl font-bold dark:text-white mb-2 text-center">What assets does {spaceName} have?</h2>
             <p className="text-sm text-gray-400 mb-5 text-center">Select all that apply. You can add more later.</p>
-            <div className="grid grid-cols-3 gap-2 mb-4 max-h-64 overflow-y-auto">
+            <div className="grid grid-cols-3 gap-2.5 mb-4 max-h-72 overflow-y-auto p-1">
               {/* Property Documents — always selected */}
               <div className="rounded-xl p-3 bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500 opacity-75 relative">
                 <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
@@ -159,7 +139,7 @@ export default function WelcomeWizard({ onComplete, onDismiss, orgName }: Welcom
                   </svg>
                 </div>
                 <div className="w-8 h-8 mb-1" dangerouslySetInnerHTML={{ __html: getItemPreset("property-docs")?.svg || "" }} />
-                <p className="text-[10px] font-medium dark:text-white truncate">Property Docs</p>
+                <p className="text-[10px] font-medium dark:text-white truncate">Property Documents</p>
               </div>
 
               {presets.map((preset) => {
@@ -188,42 +168,6 @@ export default function WelcomeWizard({ onComplete, onDismiss, orgName }: Welcom
                 );
               })}
 
-              {/* Custom */}
-              {customAssets.map((item, i) => (
-                <div key={`c-${i}`} className="rounded-xl p-3 bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500 relative">
-                  <button onClick={() => setCustomAssets((prev) => prev.filter((_, j) => j !== i))}
-                    className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center cursor-pointer">
-                    <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                  {getItemPreset(item.icon) ? (
-                    <div className="w-8 h-8 mb-1" dangerouslySetInnerHTML={{ __html: getItemPreset(item.icon)!.svg }} />
-                  ) : (
-                    <div className="w-8 h-8 mb-1 text-2xl">📦</div>
-                  )}
-                  <p className="text-[10px] font-medium dark:text-white truncate">{item.name}</p>
-                </div>
-              ))}
-
-              {showCustom ? (
-                <div className="rounded-xl p-3 bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-blue-400">
-                  <input type="text" value={customName} onChange={(e) => setCustomName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") addCustom(); if (e.key === "Escape") setShowCustom(false); }}
-                    placeholder="Name..." autoFocus
-                    className="w-full text-[10px] font-medium dark:text-white bg-transparent outline-none mb-1" />
-                  <div className="flex gap-1">
-                    <button onClick={addCustom} disabled={!customName.trim()} className="text-[9px] text-blue-500 cursor-pointer disabled:opacity-40">Add</button>
-                    <button onClick={() => { setShowCustom(false); setCustomName(""); }} className="text-[9px] text-gray-400 cursor-pointer">Cancel</button>
-                  </div>
-                </div>
-              ) : (
-                <button onClick={() => setShowCustom(true)}
-                  className="rounded-xl p-3 bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 transition-colors cursor-pointer active:scale-95">
-                  <div className="w-8 h-8 mb-1 flex items-center justify-center text-gray-400 text-lg">+</div>
-                  <p className="text-[10px] font-medium text-gray-400">Custom</p>
-                </button>
-              )}
             </div>
             <div className="flex gap-3">
               <button onClick={() => setStep(2)} className="flex-1 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-medium cursor-pointer">Back</button>
