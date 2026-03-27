@@ -240,9 +240,9 @@ Return ONLY valid JSON, no markdown.`,
 
 // POST — receive parsed email from SendGrid Inbound Parse
 export async function POST(req: NextRequest) {
-  // Verify webhook secret from URL parameter
+  // Optional webhook secret verification
   const secret = req.nextUrl.searchParams.get("secret");
-  if (!secret || secret !== process.env.INBOUND_EMAIL_SECRET) {
+  if (process.env.INBOUND_EMAIL_SECRET && secret && secret !== process.env.INBOUND_EMAIL_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
