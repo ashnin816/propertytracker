@@ -290,8 +290,6 @@ export async function POST(req: NextRequest) {
     }
 
     const orgId = org.id;
-    }
-
     let processed = 0;
     const aiPromises: Promise<void>[] = [];
 
