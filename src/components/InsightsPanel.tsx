@@ -40,10 +40,25 @@ export default function InsightsPanel() {
 
   return (
     <div className="p-4 md:p-6 h-full overflow-y-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-xl font-bold dark:text-white">Portfolio Insights</h1>
-        <p className="text-sm text-gray-400 mt-1">AI-powered overview of your properties</p>
+      {/* Header + email hint */}
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-bold dark:text-white">Portfolio Insights</h1>
+          <p className="text-sm text-gray-400 mt-1">AI-powered overview of your properties</p>
+        </div>
+        {user?.orgSlug && (
+          <button onClick={() => navigator.clipboard.writeText(`${user.orgSlug}@inbound.propertytrackerplus.com`)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-[11px] font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors cursor-pointer flex-shrink-0"
+            title="Click to copy email address">
+            <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            {user.orgSlug}@inbound.propertytrackerplus.com
+            <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Stat cards */}
@@ -67,24 +82,6 @@ export default function InsightsPanel() {
           </div>
         ))}
       </div>
-
-      {/* Email hint */}
-      {user?.orgSlug && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 flex items-center gap-3 mb-6">
-          <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-blue-900 dark:text-blue-200">Email documents directly</p>
-            <p className="text-xs text-blue-700/70 dark:text-blue-300/60 mt-0.5">
-              Send attachments to{" "}
-              <button onClick={() => navigator.clipboard.writeText(`${user.orgSlug}@inbound.propertytrackerplus.com`)}
-                className="font-semibold underline cursor-pointer">{user.orgSlug}@inbound.propertytrackerplus.com</button>
-            </p>
-          </div>
-        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
