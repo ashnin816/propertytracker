@@ -1670,6 +1670,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                     );
                   })}
                 </div>
+                </div>
               )}
 
             </div>
