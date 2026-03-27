@@ -96,6 +96,23 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
             const units: Unit[] = Array.isArray(unitsData) ? unitsData.map((u: Record<string, string>) => ({ id: u.id, spaceId: u.space_id, name: u.name, createdAt: "" })) : [];
             newAssignments[doc.id].units = units;
           }
+        } else if (spaces.length === 1) {
+          // Only one property — auto-select it
+          const space = spaces[0];
+          const unitBased = hasUnits(space.icon);
+          const items = unitBased ? [] : await getItemsForSpace(space.id);
+          newAssignments[doc.id] = {
+            spaceId: space.id, unitId: "", itemId: "",
+            units: [], items,
+            loadingUnits: false, loadingItems: false, isUnitBased: unitBased,
+            name: doc.fileName, editingName: false,
+          };
+          if (unitBased) {
+            const unitsRes = await authFetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_units", spaceId: space.id }) });
+            const unitsData = await unitsRes.json();
+            const units: Unit[] = Array.isArray(unitsData) ? unitsData.map((u: Record<string, string>) => ({ id: u.id, spaceId: u.space_id, name: u.name, createdAt: "" })) : [];
+            newAssignments[doc.id].units = units;
+          }
         } else {
           newAssignments[doc.id] = emptyAssignment(doc.fileName);
         }
