@@ -114,6 +114,7 @@ export async function GET(req: NextRequest) {
 
     if (expiry) {
       const expiryDate = parseExpiryToDate(expiry);
+      console.log("Doc:", doc.name, "expiry:", expiry, "parsed:", expiryDate?.toISOString(), "future:", expiryDate ? expiryDate.getTime() > now.getTime() : false);
       if (expiryDate && expiryDate.getTime() > now.getTime()) {
         const key = `${doc.item_id}-${(docType || "unknown").toLowerCase()}`;
         const existing = latestExpiry[key];
