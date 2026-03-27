@@ -1053,24 +1053,22 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
           </div>
 
           <div className="flex items-center gap-3 ml-auto">
-          {/* Space/Units actions in header */}
-          {(view === "space" || view === "units") && items.length > 0 && (canUpload || canEditStructure) && (
-            <div className="flex items-center gap-2 no-min-size">
-              {canUpload && (
-                <button onClick={() => document.getElementById("space-doc-upload")?.click()}
-                  className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-xs font-medium cursor-pointer no-min-size">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                  Upload
-                </button>
-              )}
-              {canEditStructure && view === "space" && (
-                <button onClick={() => setShowAddItem(true)}
-                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-medium cursor-pointer no-min-size">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-                  <span className="hidden sm:inline">Add Asset</span>
-                </button>
-              )}
-            </div>
+          {/* Upload button in header — space, units, and unit views */}
+          {(view === "space" || view === "units" || view === "unit") && canUpload && (
+            <button onClick={() => document.getElementById("space-doc-upload")?.click()}
+              className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-xs font-medium cursor-pointer no-min-size">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+              Upload
+            </button>
+          )}
+
+          {/* Add Asset button in header — space view only */}
+          {view === "space" && items.length > 0 && canEditStructure && (
+            <button onClick={() => setShowAddItem(true)}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-medium cursor-pointer no-min-size">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+              <span className="hidden sm:inline">Add Asset</span>
+            </button>
           )}
 
           {/* Mobile search icon */}
