@@ -79,22 +79,45 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
         if (preSpaceId) {
           const space = spaces.find((s) => s.id === preSpaceId);
           const unitBased = space ? hasUnits(space.icon) : false;
-          const items = unitBased ? [] : await getItemsForSpace(preSpaceId);
 
-          // Auto-select item if only one exists, or use AI suggestion
-          const autoItemId = doc.suggestedItemId || (!unitBased && items.length === 1 ? items[0].id : "");
-
-          newAssignments[doc.id] = {
-            spaceId: preSpaceId, unitId: "", itemId: autoItemId,
-            units: [], items,
-            loadingUnits: false, loadingItems: false, isUnitBased: unitBased,
-            name: doc.fileName, editingName: false,
-          };
           if (unitBased) {
+            // Fetch units
             const unitsRes = await authFetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_units", spaceId: preSpaceId }) });
             const unitsData = await unitsRes.json();
             const units: Unit[] = Array.isArray(unitsData) ? unitsData.map((u: Record<string, string>) => ({ id: u.id, spaceId: u.space_id, name: u.name, createdAt: "" })) : [];
-            newAssignments[doc.id].units = units;
+
+            // Check if AI suggested a building-level asset
+            let preUnitId = "";
+            let preItems: Item[] = [];
+            let preItemId = "";
+            if (doc.suggestedItemId) {
+              // Check if the suggested item is building-level (no unitId)
+              const allItems = await getItemsForSpace(preSpaceId);
+              const buildingItems = allItems.filter((i) => !i.unitId);
+              const isBuildingAsset = buildingItems.some((i) => i.id === doc.suggestedItemId);
+              if (isBuildingAsset) {
+                preUnitId = "__building__";
+                preItems = buildingItems;
+                preItemId = doc.suggestedItemId;
+              }
+            }
+
+            newAssignments[doc.id] = {
+              spaceId: preSpaceId, unitId: preUnitId, itemId: preItemId,
+              units, items: preItems,
+              loadingUnits: false, loadingItems: false, isUnitBased: true,
+              name: doc.fileName, editingName: false,
+            };
+          } else {
+            const items = await getItemsForSpace(preSpaceId);
+            const autoItemId = doc.suggestedItemId || (items.length === 1 ? items[0].id : "");
+
+            newAssignments[doc.id] = {
+              spaceId: preSpaceId, unitId: "", itemId: autoItemId,
+              units: [], items,
+              loadingUnits: false, loadingItems: false, isUnitBased: false,
+              name: doc.fileName, editingName: false,
+            };
           }
         } else {
           newAssignments[doc.id] = emptyAssignment(doc.fileName);
@@ -131,7 +154,12 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
 
   async function handleUnitChange(docId: string, unitId: string) {
     setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], unitId, itemId: "", items: [], loadingItems: true } }));
-    if (unitId) {
+    if (unitId === "__building__") {
+      // Load building-level assets (items without a unit)
+      const allItems = await getItemsForSpace(assignments[docId]?.spaceId || "");
+      const buildingItems = allItems.filter((i) => !i.unitId);
+      setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], items: buildingItems, loadingItems: false } }));
+    } else if (unitId) {
       const items = await getItemsForUnit(unitId);
       setAssignments((prev) => ({ ...prev, [docId]: { ...prev[docId], items, loadingItems: false } }));
     } else {
@@ -330,7 +358,8 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
                             <select value={a.unitId} onChange={(e) => handleUnitChange(doc.id, e.target.value)}
                               disabled={!a.spaceId || a.units.length === 0}
                               className="w-full appearance-none bg-gray-50 dark:bg-[#0c1222] border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:text-gray-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-40 transition-shadow">
-                              <option value="">{!a.spaceId ? "Select property first" : a.units.length === 0 ? "No units" : "Select unit..."}</option>
+                              <option value="">{!a.spaceId ? "Select property first" : a.units.length === 0 ? "No units" : "Select..."}</option>
+                              <option value="__building__">Building (property-level)</option>
                               {a.units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                             </select>
                           )}
