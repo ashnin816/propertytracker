@@ -216,11 +216,12 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
     if (authUser) {
       getAllSpaces(mirrorOrgId, authUser.assignments).then(setSpaces);
       // Load inbox count for admins/managers
-      if (authUser.orgId && (canAddProperties || canEditStructure)) {
-        getInboxCount(authUser.orgId).then(setInboxCount);
+      const effectiveOrgId = mirrorOrgId || authUser.orgId;
+      if (effectiveOrgId && (canAddProperties || canEditStructure)) {
+        getInboxCount(effectiveOrgId).then(setInboxCount);
         // Poll every 60 seconds
         const interval = setInterval(() => {
-          if (authUser.orgId) getInboxCount(authUser.orgId).then(setInboxCount);
+          if (effectiveOrgId) getInboxCount(effectiveOrgId).then(setInboxCount);
         }, 60000);
         return () => clearInterval(interval);
       }
@@ -1357,8 +1358,9 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
 
           {/* INBOX VIEW */}
           {view === "inbox" && (
-            <InboxPanel spaces={spaces} onAssigned={() => {
-              if (authUser?.orgId) getInboxCount(authUser.orgId).then(setInboxCount);
+            <InboxPanel spaces={spaces} orgId={mirrorOrgId || authUser?.orgId} onAssigned={() => {
+              const oid = mirrorOrgId || authUser?.orgId;
+              if (oid) getInboxCount(oid).then(setInboxCount);
             }} />
           )}
 

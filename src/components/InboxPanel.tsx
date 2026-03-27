@@ -11,6 +11,7 @@ import DocTypeIcon from "./DocTypeIcon";
 
 interface InboxPanelProps {
   spaces: Space[];
+  orgId?: string | null;
   onAssigned?: () => void;
 }
 
@@ -27,8 +28,9 @@ interface DocAssignment {
   editingName: boolean;
 }
 
-export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
+export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: InboxPanelProps) {
   const { user } = useAuth();
+  const effectiveOrgId = orgIdProp || user?.orgId;
   const [docs, setDocs] = useState<InboxDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [assignments, setAssignments] = useState<Record<string, DocAssignment>>({});
@@ -38,8 +40,8 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (user?.orgId) loadDocs();
-  }, [user?.orgId]);
+    if (effectiveOrgId) loadDocs();
+  }, [effectiveOrgId]);
 
   function mapDoc(r: Record<string, unknown>): InboxDocument {
     const space = r.spaces as Record<string, unknown> | null;
@@ -61,8 +63,8 @@ export default function InboxPanel({ spaces, onAssigned }: InboxPanelProps) {
   }
 
   async function loadDocs() {
-    if (!user?.orgId) return;
-    const res = await authFetch(`/api/inbox?org_id=${user.orgId}`);
+    if (!effectiveOrgId) return;
+    const res = await authFetch(`/api/inbox?org_id=${effectiveOrgId}`);
     if (res.ok) {
       const data = await res.json();
       const mapped = Array.isArray(data) ? data.map(mapDoc) : [];
