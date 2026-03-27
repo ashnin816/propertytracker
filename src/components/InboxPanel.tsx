@@ -332,7 +332,7 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
 
                   {/* Assignment controls */}
                   <div className="px-4 pb-4">
-                    <div className="flex flex-wrap items-end gap-2">
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-end gap-2">
                       {/* Property */}
                       <div className="flex-1 min-w-[130px]">
                         <label className="block text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Property</label>
@@ -394,7 +394,7 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
 
                       <button onClick={() => handleAssign(doc.id)}
                         disabled={!a.itemId || isSaving}
-                        className="px-6 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm shadow-blue-500/20">
+                        className="w-full sm:w-auto px-6 py-2.5 sm:py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm shadow-blue-500/20">
                         {isSaving ? "Assigning..." : "Assign"}
                       </button>
                     </div>

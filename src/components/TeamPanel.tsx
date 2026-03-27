@@ -416,7 +416,7 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                             <>
                               <div className="fixed inset-0 z-[200]" onClick={() => setOpenMenuId(null)} />
                               <div className="fixed w-48 bg-white dark:bg-[#1a2332] rounded-xl shadow-xl border border-gray-200/60 dark:border-gray-700 z-[201] overflow-hidden py-1"
-                                style={{ top: menuPos.top, right: menuPos.right }}>
+                                style={{ top: menuPos.top, right: Math.max(8, menuPos.right) }}>
                                   {canAssign && (
                                     <button onClick={() => { setOpenMenuId(null); handleExpandMember(m.id); }}
                                       className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
@@ -531,12 +531,12 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
                                     <button key={space.id}
                                       onClick={() => handleToggleAssignment(m.id, space.id, assigned)}
                                       disabled={saving}
-                                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer max-w-[200px] ${
                                         assigned
                                           ? "bg-blue-600 text-white hover:bg-blue-700"
                                           : "bg-white dark:bg-[#1a2332] border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-600"
                                       } ${saving ? "opacity-50" : ""}`}>
-                                      {space.name}
+                                      <span className="truncate">{space.name}</span>
                                       {assigned && (
                                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />

@@ -57,7 +57,7 @@ export default function LoginPage() {
           <p className="text-lg text-gray-500 dark:text-gray-400 mb-8 max-w-2xl mx-auto leading-relaxed">
             PropertyTracker+ helps property management companies organize warranties, receipts, contracts, and inspections across their entire portfolio — with AI that reads, names, and routes every document automatically.
           </p>
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
             <a href="mailto:hello@propertytrackerplus.com"
               className="px-8 py-3.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all font-semibold shadow-lg shadow-blue-500/25 cursor-pointer">
               Request a Demo
