@@ -1235,7 +1235,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
 
           {/* HOME VIEW */}
           {view === "home" && (canAddProperties || canEditStructure) && spaces.length > 0 && (
-            <InsightsPanel />
+            <InsightsPanel orgId={mirrorOrgId || authUser?.orgId} />
           )}
           {view === "home" && (!canAddProperties && !canEditStructure || spaces.length === 0) && (
             <div className="flex-1 flex items-center justify-center px-4">

@@ -160,6 +160,18 @@ export default function SuperAdminPanel({ onViewTenant }: SuperAdminPanelProps) 
                       "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
                     }`}>{org.plan}</span>
                   </div>
+                  {org.slug !== "admin" && (
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(`${org.slug}@inbound.propertytrackerplus.com`); }}
+                        className="text-[11px] text-gray-400 hover:text-blue-500 transition-colors cursor-pointer"
+                        title="Click to copy">
+                        {org.slug}@inbound.propertytrackerplus.com
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-gray-400">{new Date(org.created_at).toLocaleDateString()}</span>

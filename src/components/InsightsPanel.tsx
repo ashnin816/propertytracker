@@ -12,19 +12,20 @@ interface InsightsData {
   missingWarranty: { spaceName: string; itemName: string }[];
 }
 
-export default function InsightsPanel() {
+export default function InsightsPanel({ orgId: orgIdProp }: { orgId?: string | null }) {
   const { user } = useAuth();
+  const effectiveOrgId = orgIdProp || user?.orgId;
   const [data, setData] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.orgId) {
-      authFetch(`/api/insights?org_id=${user.orgId}`)
+    if (effectiveOrgId) {
+      authFetch(`/api/insights?org_id=${effectiveOrgId}`)
         .then((res) => res.json())
         .then((d) => { if (d.counts) setData(d); })
         .finally(() => setLoading(false));
     }
-  }, [user?.orgId]);
+  }, [effectiveOrgId]);
 
   if (loading) {
     return (
