@@ -73,42 +73,25 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
       const emptyAssignment = (name: string): DocAssignment => ({ spaceId: "", unitId: "", itemId: "", units: [], items: [], loadingUnits: false, loadingItems: false, isUnitBased: false, name, editingName: false });
       const newAssignments: Record<string, DocAssignment> = {};
       for (const doc of mapped) {
-        if (doc.suggestedSpaceId) {
-          const space = spaces.find((s) => s.id === doc.suggestedSpaceId);
+        // Determine which space to pre-select
+        const preSpaceId = doc.suggestedSpaceId || (spaces.length === 1 ? spaces[0].id : null);
+
+        if (preSpaceId) {
+          const space = spaces.find((s) => s.id === preSpaceId);
           const unitBased = space ? hasUnits(space.icon) : false;
-          const items = await getItemsForSpace(doc.suggestedSpaceId);
+          const items = unitBased ? [] : await getItemsForSpace(preSpaceId);
+
+          // Auto-select item if only one exists, or use AI suggestion
+          const autoItemId = doc.suggestedItemId || (!unitBased && items.length === 1 ? items[0].id : "");
+
           newAssignments[doc.id] = {
-            spaceId: doc.suggestedSpaceId,
-            unitId: "",
-            itemId: doc.suggestedItemId || "",
-            units: [],
-            items: unitBased ? [] : items,
-            loadingUnits: false,
-            loadingItems: false,
-            isUnitBased: unitBased,
-            name: doc.fileName,
-            editingName: false,
-          };
-          // Load units if unit-based property
-          if (unitBased) {
-            const unitsRes = await authFetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_units", spaceId: doc.suggestedSpaceId }) });
-            const unitsData = await unitsRes.json();
-            const units: Unit[] = Array.isArray(unitsData) ? unitsData.map((u: Record<string, string>) => ({ id: u.id, spaceId: u.space_id, name: u.name, createdAt: "" })) : [];
-            newAssignments[doc.id].units = units;
-          }
-        } else if (spaces.length === 1) {
-          // Only one property — auto-select it
-          const space = spaces[0];
-          const unitBased = hasUnits(space.icon);
-          const items = unitBased ? [] : await getItemsForSpace(space.id);
-          newAssignments[doc.id] = {
-            spaceId: space.id, unitId: "", itemId: "",
+            spaceId: preSpaceId, unitId: "", itemId: autoItemId,
             units: [], items,
             loadingUnits: false, loadingItems: false, isUnitBased: unitBased,
             name: doc.fileName, editingName: false,
           };
           if (unitBased) {
-            const unitsRes = await authFetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_units", spaceId: space.id }) });
+            const unitsRes = await authFetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_units", spaceId: preSpaceId }) });
             const unitsData = await unitsRes.json();
             const units: Unit[] = Array.isArray(unitsData) ? unitsData.map((u: Record<string, string>) => ({ id: u.id, spaceId: u.space_id, name: u.name, createdAt: "" })) : [];
             newAssignments[doc.id].units = units;
