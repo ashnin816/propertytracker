@@ -358,6 +358,8 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   // Space actions
   async function handleAddSpace(name: string, icon: string) {
     const space = await createSpace(name, icon);
+    // Auto-create "Property Documents" asset for property-level docs
+    await createItem(space.id, "Property Documents", "property-docs", null);
     const spaceIconData = getSpaceIcon(icon);
     await refreshSpaces();
     setShowAddSpace(false);
@@ -2025,6 +2027,7 @@ function QuickSetup({ spaceIcon, spaceName, onAdd }: {
   // Auto-suggest icon from preset labels
   // Keyword aliases for better auto-icon matching
   const iconAliases: Record<string, string[]> = {
+    "property-docs": ["property", "tax", "insurance", "hoa", "deed", "title", "mortgage", "assessment", "permit", "certificate of occupancy"],
     engine: ["car", "truck", "suv", "auto", "automobile", "van", "vehicle", "engine", "motor"],
     hvac: ["hvac", "ac", "air condition", "heating", "furnace", "heat pump", "thermostat"],
     "water-heater": ["water heater", "hot water", "boiler", "tankless"],

@@ -145,6 +145,21 @@ export const SPACE_ICONS: SpaceIcon[] = [
 export const ITEM_PRESETS: ItemPreset[] = [
   // Property
   {
+    key: "property-docs",
+    label: "Property Documents",
+    emoji: "📋",
+    category: "Property",
+    spaceTypes: ["residential", "multifamily", "commercial", "rental", "industrial", "hoa", "mixed", "other"],
+    svg: `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="10" y="4" width="44" height="56" rx="6" fill="#3B82F6"/>
+      <rect x="18" y="14" width="28" height="3" rx="1.5" fill="white" opacity="0.4"/>
+      <rect x="18" y="22" width="28" height="3" rx="1.5" fill="white" opacity="0.4"/>
+      <rect x="18" y="30" width="20" height="3" rx="1.5" fill="white" opacity="0.4"/>
+      <rect x="18" y="40" width="28" height="3" rx="1.5" fill="white" opacity="0.25"/>
+      <rect x="18" y="48" width="16" height="3" rx="1.5" fill="white" opacity="0.25"/>
+    </svg>`,
+  },
+  {
     key: "unit",
     label: "Unit",
     emoji: "🚪",
