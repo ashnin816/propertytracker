@@ -138,3 +138,94 @@ export async function sendReactivatedEmail(to: string, name: string) {
     `),
   });
 }
+
+// Expiration alert
+export async function sendExpirationAlert(
+  to: string,
+  name: string,
+  docs: { docName: string; spaceName: string; itemName: string; expiryDate: string; daysRemaining: number }[]
+) {
+  const docRows = docs.map((d) => {
+    const urgency = d.daysRemaining <= 7 ? "#ef4444" : d.daysRemaining <= 30 ? "#f59e0b" : "#eab308";
+    return `
+      <div style="padding:12px 16px;border-left:4px solid ${urgency};background:#fafafa;border-radius:0 8px 8px 0;margin-bottom:8px;">
+        <p style="margin:0 0 4px;color:#1a1a1a;font-size:14px;font-weight:600;">${d.docName}</p>
+        <p style="margin:0;color:#666;font-size:12px;">${d.spaceName} &rarr; ${d.itemName}</p>
+        <p style="margin:4px 0 0;color:${urgency};font-size:12px;font-weight:600;">Expires ${d.expiryDate} (${d.daysRemaining} day${d.daysRemaining !== 1 ? "s" : ""})</p>
+      </div>`;
+  }).join("");
+
+  return resend.emails.send({
+    from: FROM,
+    to,
+    subject: `⚠️ ${docs.length} document${docs.length !== 1 ? "s" : ""} expiring soon — PropertyTracker+`,
+    html: baseTemplate(`
+      <h1 style="color:#1a1a1a;font-size:22px;font-weight:700;margin:0 0 12px;letter-spacing:-0.3px;">Expiration Alert</h1>
+      <p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 20px;">
+        Hi ${name}, the following document${docs.length !== 1 ? "s" : ""} ${docs.length !== 1 ? "are" : "is"} expiring soon and may need attention:
+      </p>
+      ${docRows}
+      ${button(APP_URL, "View Insights Dashboard")}
+      ${divider()}
+      <p style="color:#999;font-size:12px;line-height:1.6;margin:0;text-align:center;">
+        Review and renew coverage to keep your properties protected.
+      </p>
+    `),
+  });
+}
+
+// Weekly digest
+export async function sendWeeklyDigest(
+  to: string,
+  name: string,
+  orgName: string,
+  stats: { docsThisWeek: number; inboxPending: number; expiringCount: number },
+  aiSummary?: string,
+) {
+  return resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Your weekly PropertyTracker+ digest`,
+    html: baseTemplate(`
+      <h1 style="color:#1a1a1a;font-size:22px;font-weight:700;margin:0 0 12px;letter-spacing:-0.3px;">Weekly Digest</h1>
+      <p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 20px;">
+        Hi ${name}, here&rsquo;s your week at ${orgName}:
+      </p>
+      <div style="background:#f8f9fa;border-radius:12px;padding:20px;margin:0 0 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">
+          <tr>
+            <td style="padding:8px 0;border-bottom:1px solid #eee;">
+              <span style="color:#666;font-size:13px;">Documents this week</span>
+            </td>
+            <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;">
+              <span style="color:#1a1a1a;font-size:14px;font-weight:700;">${stats.docsThisWeek}</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0;border-bottom:1px solid #eee;">
+              <span style="color:#666;font-size:13px;">Inbox pending</span>
+            </td>
+            <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;">
+              <span style="color:${stats.inboxPending > 0 ? "#f59e0b" : "#1a1a1a"};font-size:14px;font-weight:700;">${stats.inboxPending}</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0;">
+              <span style="color:#666;font-size:13px;">Expiring in 90 days</span>
+            </td>
+            <td style="padding:8px 0;text-align:right;">
+              <span style="color:${stats.expiringCount > 0 ? "#ef4444" : "#1a1a1a"};font-size:14px;font-weight:700;">${stats.expiringCount}</span>
+            </td>
+          </tr>
+        </table>
+      </div>
+      ${aiSummary ? `
+        <div style="background:#eff6ff;border-radius:12px;padding:16px 20px;margin:0 0 20px;border-left:4px solid #2563eb;">
+          <p style="margin:0 0 4px;color:#1e40af;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">AI Summary</p>
+          <p style="margin:0;color:#1e3a5f;font-size:13px;line-height:1.6;">${aiSummary}</p>
+        </div>
+      ` : ""}
+      ${button(APP_URL, "View Insights Dashboard")}
+    `),
+  });
+}
