@@ -14,7 +14,7 @@ import {
   globalSearch, SearchResult, getRecentActivity, getAllDocumentsWithContext,
   getDocument, getInboxCount,
 } from "@/lib/supabase-storage";
-import { getSpaceIcon, getSpaceColors, getItemPreset, getCategoryColors, getPresetsForSpaceType, hasUnits } from "@/lib/presets";
+import { getSpaceIcon, getSpaceColors, getItemPreset, getCategoryColors, getPresetsForSpaceType, hasUnits, ITEM_PRESETS } from "@/lib/presets";
 import { getCustomIcon } from "@/lib/icons";
 import { timeAgo } from "@/lib/time";
 import { compressImage, isImageDataUrl } from "@/lib/compress";
@@ -1377,21 +1377,24 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                 <div className="h-full flex flex-col items-center justify-center">
                   <span className="text-4xl mb-3 block">{spaceIcon.emoji}</span>
                   {canEditStructure ? (
-                    <>
-                      <p className="text-lg font-bold dark:text-white mb-2">Set up {selectedSpace.name}</p>
-                      <p className="text-sm text-gray-400 mb-6">What assets does this property have? Tap to add.</p>
-                      <div className="grid grid-cols-2 gap-3 w-full max-w-md">
-                        {getPresetsForSpaceType(selectedSpace.icon).slice(0, 8).map((preset) => {
-                          return (
-                            <button key={preset.key} onClick={() => handleQuickAddItem(preset.label, preset.key)}
-                              className="rounded-2xl bg-white dark:bg-[#1a2332] p-4 active:scale-95 transition-all shadow-md hover:shadow-lg text-left no-min-size">
-                              <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: preset.svg }} />
-                              <p className="text-sm font-semibold dark:text-white">{preset.label}</p>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </>
+                    <QuickSetup
+                      spaceIcon={selectedSpace.icon}
+                      onAdd={async (items) => {
+                        if (!selectedSpaceId) return;
+                        for (const item of items) {
+                          await createItem(selectedSpaceId, item.name, item.icon, null, selectedUnitId || undefined);
+                        }
+                        if (selectedUnitId) {
+                          setItems(await getItemsForUnit(selectedUnitId));
+                        } else {
+                          const spaceItems = await getItemsForSpace(selectedSpaceId);
+                          setItems(spaceItems.filter((i) => !i.unitId));
+                        }
+                        await refreshSpaces();
+                        toast(`${items.length} asset${items.length !== 1 ? "s" : ""} added`);
+                      }}
+                      spaceName={selectedSpace.name}
+                    />
                   ) : (
                     <>
                       <p className="text-lg font-bold dark:text-white mb-2">{selectedSpace.name}</p>
@@ -1579,28 +1582,19 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                 <div className="h-full flex flex-col items-center justify-center py-12">
                   <span className="text-4xl mb-3">🚪</span>
                   {canEditStructure ? (
-                    <>
-                      <p className="text-lg font-bold dark:text-white mb-2">Set up {selectedUnit?.name}</p>
-                      <p className="text-sm text-gray-400 mb-6">What assets does this unit have?</p>
-                      <div className="grid grid-cols-2 gap-3 w-full max-w-md">
-                        {getPresetsForSpaceType(selectedSpace.icon).slice(0, 6).map((preset) => {
-                          return (
-                            <button key={preset.key} onClick={async () => {
-                              if (selectedSpaceId) {
-                                await createItem(selectedSpaceId, preset.label, preset.key, null, selectedUnitId);
-                                setItems(await getItemsForUnit(selectedUnitId));
-                                await refreshSpaces();
-                                toast(`${preset.label} added`);
-                              }
-                            }}
-                              className="card rounded-2xl p-4 active:scale-95 transition-all hover:shadow-lg text-left no-min-size cursor-pointer">
-                              <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: preset.svg }} />
-                              <p className="text-sm font-semibold dark:text-white">{preset.label}</p>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </>
+                    <QuickSetup
+                      spaceIcon={selectedSpace.icon}
+                      onAdd={async (addItems) => {
+                        if (!selectedSpaceId) return;
+                        for (const item of addItems) {
+                          await createItem(selectedSpaceId, item.name, item.icon, null, selectedUnitId);
+                        }
+                        setItems(await getItemsForUnit(selectedUnitId));
+                        await refreshSpaces();
+                        toast(`${addItems.length} asset${addItems.length !== 1 ? "s" : ""} added`);
+                      }}
+                      spaceName={selectedUnit?.name || ""}
+                    />
                   ) : (
                     <>
                       <p className="text-lg font-bold dark:text-white mb-2">{selectedUnit?.name}</p>
@@ -1906,6 +1900,154 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
         }}
       />}
     </div>
+  );
+}
+
+// Quick setup component — multi-select presets + custom asset with auto-icon
+function QuickSetup({ spaceIcon, spaceName, onAdd }: {
+  spaceIcon: string;
+  spaceName: string;
+  onAdd: (items: { name: string; icon: string }[]) => Promise<void>;
+}) {
+  const presets = getPresetsForSpaceType(spaceIcon).slice(0, 12);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showCustom, setShowCustom] = useState(false);
+  const [customName, setCustomName] = useState("");
+  const [customItems, setCustomItems] = useState<{ name: string; icon: string }[]>([]);
+  const [adding, setAdding] = useState(false);
+
+  function togglePreset(key: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  // Auto-suggest icon from preset labels
+  function findIconForName(name: string): string {
+    const lower = name.toLowerCase();
+    const match = ITEM_PRESETS.find((p) =>
+      p.label.toLowerCase().includes(lower) || lower.includes(p.label.toLowerCase())
+    );
+    return match?.key || "custom";
+  }
+
+  function addCustom() {
+    if (!customName.trim()) return;
+    const icon = findIconForName(customName.trim());
+    setCustomItems((prev) => [...prev, { name: customName.trim(), icon }]);
+    setCustomName("");
+    setShowCustom(false);
+  }
+
+  function removeCustom(index: number) {
+    setCustomItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  const totalCount = selected.size + customItems.length;
+
+  async function handleAdd() {
+    if (totalCount === 0) return;
+    setAdding(true);
+    const items: { name: string; icon: string }[] = [];
+    for (const key of selected) {
+      const preset = presets.find((p) => p.key === key);
+      if (preset) items.push({ name: preset.label, icon: preset.key });
+    }
+    items.push(...customItems);
+    await onAdd(items);
+    setAdding(false);
+  }
+
+  return (
+    <>
+      <p className="text-lg font-bold dark:text-white mb-2">Set up {spaceName}</p>
+      <p className="text-sm text-gray-400 mb-5">Select the assets this property has</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full max-w-lg">
+        {presets.map((preset) => {
+          const isSelected = selected.has(preset.key);
+          return (
+            <button key={preset.key} onClick={() => togglePreset(preset.key)}
+              className={`rounded-2xl p-4 text-left no-min-size transition-all cursor-pointer relative ${
+                isSelected
+                  ? "bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500 shadow-md"
+                  : "bg-white dark:bg-[#1a2332] shadow-md hover:shadow-lg active:scale-95"
+              }`}>
+              {isSelected && (
+                <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+              <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: preset.svg }} />
+              <p className="text-sm font-semibold dark:text-white">{preset.label}</p>
+            </button>
+          );
+        })}
+
+        {/* Custom items already added */}
+        {customItems.map((item, i) => {
+          const preset = item.icon !== "custom" ? getItemPreset(item.icon) : null;
+          return (
+            <div key={`custom-${i}`} className="rounded-2xl p-4 text-left bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500 shadow-md relative">
+              <button onClick={() => removeCustom(i)} className="absolute top-2 right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center cursor-pointer">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              {preset ? (
+                <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: preset.svg }} />
+              ) : (
+                <div className="w-10 h-10 mb-2 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                </div>
+              )}
+              <p className="text-sm font-semibold dark:text-white">{item.name}</p>
+            </div>
+          );
+        })}
+
+        {/* Add custom button / form */}
+        {showCustom ? (
+          <div className="rounded-2xl p-4 bg-white dark:bg-[#1a2332] shadow-md border-2 border-dashed border-gray-300 dark:border-gray-600">
+            <input type="text" value={customName} onChange={(e) => setCustomName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") addCustom(); if (e.key === "Escape") setShowCustom(false); }}
+              placeholder="Asset name..."
+              autoFocus
+              className="w-full text-sm font-semibold dark:text-white bg-transparent outline-none mb-2 placeholder-gray-400" />
+            <div className="flex items-center gap-2">
+              <button onClick={addCustom} disabled={!customName.trim()}
+                className="text-xs font-medium text-blue-600 dark:text-blue-400 cursor-pointer disabled:opacity-40">Add</button>
+              <button onClick={() => { setShowCustom(false); setCustomName(""); }}
+                className="text-xs text-gray-400 cursor-pointer">Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setShowCustom(true)}
+            className="rounded-2xl p-4 text-left bg-white dark:bg-[#1a2332] shadow-md hover:shadow-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-600 transition-all cursor-pointer no-min-size active:scale-95">
+            <div className="w-10 h-10 mb-2 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <p className="text-sm font-semibold text-gray-400">Custom...</p>
+          </button>
+        )}
+      </div>
+
+      {/* Add button */}
+      {totalCount > 0 && (
+        <button onClick={handleAdd} disabled={adding}
+          className="mt-6 px-8 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 transition-all font-semibold text-sm shadow-lg shadow-blue-500/25 cursor-pointer">
+          {adding ? "Adding..." : `Add ${totalCount} Asset${totalCount !== 1 ? "s" : ""}`}
+        </button>
+      )}
+    </>
   );
 }
 
