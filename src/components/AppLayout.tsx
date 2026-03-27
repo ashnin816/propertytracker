@@ -2154,7 +2154,7 @@ function QuickSetup({ spaceIcon, spaceName, onAdd }: {
               {preset ? (
                 <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: preset.svg }} />
               ) : (
-                <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="14" fill="#94a3b8"/><path d="M32 20v24M20 32h24" stroke="white" stroke-width="4" stroke-linecap="round"/></svg>` }} />
+                <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 64 64" fill="none"><path d="M10 20a4 4 0 014-4h12l4 4h20a4 4 0 014 4v24a4 4 0 01-4 4H14a4 4 0 01-4-4V20z" fill="#94a3b8"/><path d="M10 24h44v24a4 4 0 01-4 4H14a4 4 0 01-4-4V24z" fill="#7e8a9a"/></svg>` }} />
               )}
               <p className="text-sm font-semibold dark:text-white">{item.name}</p>
             </div>
