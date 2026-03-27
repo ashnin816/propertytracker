@@ -126,9 +126,10 @@ export async function createItem(spaceId: string, name: string, icon: string, ph
   return toItem(data!);
 }
 
-export async function updateItem(id: string, updates: Partial<Pick<Item, "name" | "photoUrl">>) {
+export async function updateItem(id: string, updates: Partial<Pick<Item, "name" | "icon" | "photoUrl">>) {
   const dbUpdates: Record<string, unknown> = {};
   if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.icon !== undefined) dbUpdates.icon = updates.icon;
   if (updates.photoUrl !== undefined) dbUpdates.photo_url = updates.photoUrl;
   await supabase.from("items").update(dbUpdates).eq("id", id);
 }

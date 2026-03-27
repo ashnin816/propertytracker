@@ -83,6 +83,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   const [contextDeleteItemId, setContextDeleteItemId] = useState<string | null>(null);
   const [contextDeleteUnitId, setContextDeleteUnitId] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<{ type: "space" | "unit" | "item"; id: string; name: string } | null>(null);
+  const [changeIconTarget, setChangeIconTarget] = useState<{ id: string; currentIcon: string } | null>(null);
   const [showBulkUnits, setShowBulkUnits] = useState(false);
   const [deleteDocId, setDeleteDocId] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
@@ -1422,6 +1423,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                             <div className="absolute top-2 right-2 z-10">
                               <ContextMenu items={[
                                 { label: "Rename", icon: "rename", onClick: () => setRenameTarget({ type: "item", id: item.id, name: item.name }) },
+                                { label: "Change Icon", icon: "rename", onClick: () => setChangeIconTarget({ id: item.id, currentIcon: item.icon }) },
                                 { label: "Delete", icon: "delete", danger: true, onClick: () => setContextDeleteItemId(item.id) },
                               ]} />
                             </div>
@@ -1540,6 +1542,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                             <div className="absolute top-2 right-2 z-10">
                               <ContextMenu items={[
                                 { label: "Rename", icon: "rename", onClick: () => setRenameTarget({ type: "item", id: item.id, name: item.name }) },
+                                { label: "Change Icon", icon: "rename", onClick: () => setChangeIconTarget({ id: item.id, currentIcon: item.icon }) },
                                 { label: "Delete", icon: "delete", danger: true, onClick: () => setContextDeleteItemId(item.id) },
                               ]} />
                             </div>
@@ -1845,6 +1848,36 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
           onCancel={() => setRenameTarget(null)}
         />
       )}
+      {changeIconTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setChangeIconTarget(null)}>
+          <div className="bg-white dark:bg-[#1a2332] rounded-2xl w-full max-w-md animate-scale-in overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 pt-6 pb-4">
+              <h2 className="text-lg font-bold dark:text-white">Change Icon</h2>
+              <p className="text-sm text-gray-400 mt-1">Choose an icon for this asset</p>
+            </div>
+            <div className="px-6 pb-6 grid grid-cols-6 gap-2 max-h-64 overflow-y-auto">
+              {ITEM_PRESETS.map((p) => (
+                <button key={p.key} onClick={async () => {
+                  await updateItem(changeIconTarget.id, { icon: p.key });
+                  if (selectedUnitId) setItems(await getItemsForUnit(selectedUnitId));
+                  else if (selectedSpaceId) {
+                    const spaceItems = await getItemsForSpace(selectedSpaceId);
+                    setItems(spaceItems.filter((i) => !i.unitId));
+                  }
+                  setChangeIconTarget(null);
+                  toast(`Icon changed`);
+                }}
+                  className={`w-full aspect-square rounded-xl p-2 cursor-pointer transition-all ${
+                    changeIconTarget.currentIcon === p.key ? "ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30" : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                  }`}
+                  title={p.label}>
+                  <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: p.svg }} />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {contextDeleteUnitData && (
         <DeleteModal title={`Delete "${contextDeleteUnitData.unit.name}"?`} message="This unit and all its assets will be permanently removed."
           warning={contextDeleteUnitData.assetCount > 0 ? `${contextDeleteUnitData.assetCount} asset${contextDeleteUnitData.assetCount !== 1 ? "s" : ""} and all their documents will be deleted.` : undefined}
@@ -1917,8 +1950,8 @@ function CustomAssetForm({ customName, onNameChange, onAdd, onCancel, findIcon }
 
   // Generic icon SVG at full size to match preset icons
   const genericSvg = `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="8" y="8" width="48" height="48" rx="12" fill="#94a3b8"/>
-    <path d="M32 22v20M22 32h20" stroke="white" stroke-width="3" stroke-linecap="round"/>
+    <rect width="64" height="64" rx="14" fill="#94a3b8"/>
+    <path d="M32 20v24M20 32h24" stroke="white" stroke-width="4" stroke-linecap="round"/>
   </svg>`;
 
   return (
@@ -2103,11 +2136,7 @@ function QuickSetup({ spaceIcon, spaceName, onAdd }: {
               {preset ? (
                 <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: preset.svg }} />
               ) : (
-                <div className="w-10 h-10 mb-2 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                  </svg>
-                </div>
+                <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="14" fill="#94a3b8"/><path d="M32 20v24M20 32h24" stroke="white" stroke-width="4" stroke-linecap="round"/></svg>` }} />
               )}
               <p className="text-sm font-semibold dark:text-white">{item.name}</p>
             </div>
@@ -2126,11 +2155,7 @@ function QuickSetup({ spaceIcon, spaceName, onAdd }: {
         ) : (
           <button onClick={() => setShowCustom(true)}
             className="rounded-2xl p-4 text-left bg-white dark:bg-[#1a2332] shadow-md hover:shadow-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-600 transition-all cursor-pointer no-min-size active:scale-95">
-            <div className="w-10 h-10 mb-2 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </div>
+            <div className="w-10 h-10 mb-2" dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="14" fill="#cbd5e1"/><path d="M32 20v24M20 32h24" stroke="white" stroke-width="4" stroke-linecap="round"/></svg>` }} />
             <p className="text-sm font-semibold text-gray-400">Custom...</p>
           </button>
         )}
