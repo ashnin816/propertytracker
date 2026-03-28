@@ -156,13 +156,10 @@ export async function GET(req: NextRequest) {
           ).catch((err) => console.error("Expiry alert failed:", err));
         }
 
-        // Record sent alerts
-        for (const alert of newAlerts) {
-          await admin.from("expiry_alerts_sent").upsert({
-            document_id: alert.docId,
-            threshold_days: alert.threshold,
-          });
-        }
+        // Record sent alerts (batch)
+        await admin.from("expiry_alerts_sent").upsert(
+          newAlerts.map((alert) => ({ document_id: alert.docId, threshold_days: alert.threshold }))
+        );
 
         alertsSent += newAlerts.length;
       }

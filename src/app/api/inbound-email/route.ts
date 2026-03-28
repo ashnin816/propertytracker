@@ -12,8 +12,10 @@ function getAdminClient() {
   );
 }
 
+interface OrgContext { spaces: { id: string; name: string }[]; items: { id: string; name: string; space_id: string }[]; orgContextJson: string; }
+
 // AI: Analyze document and suggest property/asset match
-async function processWithAI(admin: SupabaseClient, docId: string, fileUrl: string, fileType: string, orgId: string, subject: string | null) {
+async function processWithAI(admin: SupabaseClient, docId: string, fileUrl: string, fileType: string, orgId: string, subject: string | null, orgCtx?: OrgContext) {
   const apiKey = process.env.CLAUDE_API_KEY;
   if (!apiKey) return;
 
@@ -171,22 +173,20 @@ Return ONLY valid JSON, no markdown or explanation.`,
     if (docDetails) updates.details = docDetails;
     await admin.from("inbox_documents").update(updates).eq("id", docId);
 
-    // Step 2: Match to property/asset
-    const { data: spaces } = await admin.from("spaces").select("id, name").eq("org_id", orgId);
-    if (!spaces || spaces.length === 0) return;
-
-    const spaceIds = spaces.map((s: { id: string }) => s.id);
-    const { data: items } = await admin.from("items").select("id, name, space_id").in("space_id", spaceIds);
-
-    // Build context for Claude
-    const orgContext = spaces.map((s: { id: string; name: string }) => ({
-      spaceId: s.id,
-      spaceName: s.name,
-      items: (items || []).filter((i: { space_id: string }) => i.space_id === s.id).map((i: { id: string; name: string }) => ({
-        itemId: i.id,
-        itemName: i.name,
-      })),
-    }));
+    // Step 2: Match to property/asset (use pre-fetched context if available)
+    let ctx = orgCtx;
+    if (!ctx) {
+      const { data: spaces } = await admin.from("spaces").select("id, name").eq("org_id", orgId);
+      if (!spaces || spaces.length === 0) return;
+      const spaceIds = spaces.map((s: { id: string }) => s.id);
+      const { data: items } = await admin.from("items").select("id, name, space_id").in("space_id", spaceIds);
+      const orgContext = spaces.map((s: { id: string; name: string }) => ({
+        spaceId: s.id, spaceName: s.name,
+        items: (items || []).filter((i: { space_id: string }) => i.space_id === s.id).map((i: { id: string; name: string }) => ({ itemId: i.id, itemName: i.name })),
+      }));
+      ctx = { spaces, items: items || [], orgContextJson: JSON.stringify(orgContext, null, 2) };
+    }
+    const orgContext = ctx;
 
     const matchContext = extractedText || smartName || subject || "Unknown document";
 
@@ -207,7 +207,7 @@ Return ONLY valid JSON, no markdown or explanation.`,
 - Content: "${matchContext.slice(0, 1000)}"
 
 And these properties and assets:
-${JSON.stringify(orgContext, null, 2)}
+${orgContext.orgContextJson}
 
 Which property and asset does this document most likely belong to?
 Return JSON: { "space_id": "the matching space UUID", "item_id": "the matching item UUID", "reason": "brief explanation" }
@@ -294,6 +294,19 @@ export async function POST(req: NextRequest) {
     }
 
     const orgId = org.id;
+    // Pre-fetch org context once for AI matching (shared across all attachments)
+    let orgCtx: OrgContext | undefined;
+    const { data: ctxSpaces } = await admin.from("spaces").select("id, name").eq("org_id", orgId);
+    if (ctxSpaces && ctxSpaces.length > 0) {
+      const ctxSpaceIds = ctxSpaces.map((s: { id: string }) => s.id);
+      const { data: ctxItems } = await admin.from("items").select("id, name, space_id").in("space_id", ctxSpaceIds);
+      const ctxJson = ctxSpaces.map((s: { id: string; name: string }) => ({
+        spaceId: s.id, spaceName: s.name,
+        items: (ctxItems || []).filter((i: { space_id: string }) => i.space_id === s.id).map((i: { id: string; name: string }) => ({ itemId: i.id, itemName: i.name })),
+      }));
+      orgCtx = { spaces: ctxSpaces, items: ctxItems || [], orgContextJson: JSON.stringify(ctxJson, null, 2) };
+    }
+
     let processed = 0;
     const aiPromises: Promise<void>[] = [];
 
@@ -353,7 +366,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Queue AI processing
-      aiPromises.push(processWithAI(admin, insertedDoc.id, fileUrl, contentType, orgId, subject));
+      aiPromises.push(processWithAI(admin, insertedDoc.id, fileUrl, contentType, orgId, subject, orgCtx));
       processed++;
     }
 

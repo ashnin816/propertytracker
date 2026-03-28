@@ -143,6 +143,22 @@ export async function getItemCountForSpace(spaceId: string): Promise<number> {
   return count || 0;
 }
 
+export async function getItemCountsForSpaces(spaceIds: string[]): Promise<Record<string, number>> {
+  if (spaceIds.length === 0) return {};
+  const { data } = await supabase.from("items").select("space_id").in("space_id", spaceIds);
+  const counts: Record<string, number> = {};
+  for (const item of data || []) counts[item.space_id] = (counts[item.space_id] || 0) + 1;
+  return counts;
+}
+
+export async function getUnitCountsForSpaces(spaceIds: string[]): Promise<Record<string, number>> {
+  if (spaceIds.length === 0) return {};
+  const { data } = await supabase.from("units").select("space_id").in("space_id", spaceIds);
+  const counts: Record<string, number> = {};
+  for (const unit of data || []) counts[unit.space_id] = (counts[unit.space_id] || 0) + 1;
+  return counts;
+}
+
 export async function getDocumentCountForItem(itemId: string): Promise<number> {
   const { count } = await supabase.from("documents").select("id", { count: "exact", head: true }).eq("item_id", itemId);
   return count || 0;

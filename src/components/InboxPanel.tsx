@@ -69,31 +69,40 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
       const data = await res.json();
       const mapped = Array.isArray(data) ? data.map(mapDoc) : [];
       setDocs(mapped);
-      // Pre-fill assignments from AI suggestions
+      // Pre-fill assignments — batch-fetch unique spaces first
       const emptyAssignment = (name: string): DocAssignment => ({ spaceId: "", unitId: "", itemId: "", units: [], items: [], loadingUnits: false, loadingItems: false, isUnitBased: false, name, editingName: false });
       const newAssignments: Record<string, DocAssignment> = {};
+
+      // Collect unique space IDs to pre-fetch
+      const uniqueSpaceIds = [...new Set(mapped.map((d) => d.suggestedSpaceId || (spaces.length === 1 ? spaces[0].id : null)).filter(Boolean))] as string[];
+
+      // Batch fetch items and units for all needed spaces
+      const itemsBySpace: Record<string, Item[]> = {};
+      const unitsBySpace: Record<string, Unit[]> = {};
+      await Promise.all(uniqueSpaceIds.map(async (spaceId) => {
+        const [items, unitsRes] = await Promise.all([
+          getItemsForSpace(spaceId),
+          authFetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_units", spaceId }) }).then((r) => r.json()),
+        ]);
+        itemsBySpace[spaceId] = items;
+        unitsBySpace[spaceId] = Array.isArray(unitsRes) ? unitsRes.map((u: Record<string, string>) => ({ id: u.id, spaceId: u.space_id, name: u.name, createdAt: "" })) : [];
+      }));
+
       for (const doc of mapped) {
-        // Determine which space to pre-select
         const preSpaceId = doc.suggestedSpaceId || (spaces.length === 1 ? spaces[0].id : null);
 
         if (preSpaceId) {
           const space = spaces.find((s) => s.id === preSpaceId);
           const unitBased = space ? hasUnits(space.icon) : false;
+          const spaceItems = itemsBySpace[preSpaceId] || [];
+          const spaceUnits = unitsBySpace[preSpaceId] || [];
 
           if (unitBased) {
-            // Fetch units
-            const unitsRes = await authFetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_units", spaceId: preSpaceId }) });
-            const unitsData = await unitsRes.json();
-            const units: Unit[] = Array.isArray(unitsData) ? unitsData.map((u: Record<string, string>) => ({ id: u.id, spaceId: u.space_id, name: u.name, createdAt: "" })) : [];
-
-            // Check if AI suggested a building-level asset
             let preUnitId = "";
             let preItems: Item[] = [];
             let preItemId = "";
             if (doc.suggestedItemId) {
-              // Check if the suggested item is building-level (no unitId)
-              const allItems = await getItemsForSpace(preSpaceId);
-              const buildingItems = allItems.filter((i) => !i.unitId);
+              const buildingItems = spaceItems.filter((i) => !i.unitId);
               const isBuildingAsset = buildingItems.some((i) => i.id === doc.suggestedItemId);
               if (isBuildingAsset) {
                 preUnitId = "__building__";
@@ -104,17 +113,16 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
 
             newAssignments[doc.id] = {
               spaceId: preSpaceId, unitId: preUnitId, itemId: preItemId,
-              units, items: preItems,
+              units: spaceUnits, items: preItems,
               loadingUnits: false, loadingItems: false, isUnitBased: true,
               name: doc.fileName, editingName: false,
             };
           } else {
-            const items = await getItemsForSpace(preSpaceId);
-            const autoItemId = doc.suggestedItemId || (items.length === 1 ? items[0].id : "");
+            const autoItemId = doc.suggestedItemId || (spaceItems.length === 1 ? spaceItems[0].id : "");
 
             newAssignments[doc.id] = {
               spaceId: preSpaceId, unitId: "", itemId: autoItemId,
-              units: [], items,
+              units: [], items: spaceItems,
               loadingUnits: false, loadingItems: false, isUnitBased: false,
               name: doc.fileName, editingName: false,
             };

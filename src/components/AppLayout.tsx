@@ -12,7 +12,7 @@ import {
   getDocumentCountForItem,
   getDocumentCountsForItems,
   globalSearch, SearchResult, getRecentActivity, getAllDocumentsWithContext,
-  getDocument, getInboxCount,
+  getDocument, getInboxCount, getItemCountsForSpaces, getUnitCountsForSpaces,
 } from "@/lib/supabase-storage";
 import { getSpaceIcon, getSpaceColors, getItemPreset, getCategoryColors, getPresetsForSpaceType, hasUnits, ITEM_PRESETS } from "@/lib/presets";
 import { getCustomIcon } from "@/lib/icons";
@@ -179,18 +179,19 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   // Load space counts whenever spaces change
   useEffect(() => {
     async function loadCounts() {
+      if (spaces.length === 0) { setSpaceCounts({}); return; }
+      const spaceIds = spaces.map((s) => s.id);
+      const [itemsRes, unitsRes] = await Promise.all([
+        getItemCountsForSpaces(spaceIds),
+        getUnitCountsForSpaces(spaceIds),
+      ]);
       const counts: Record<string, { items: number; units: number }> = {};
-      for (const space of spaces) {
-        const [ic, uc] = await Promise.all([
-          getItemCountForSpace(space.id),
-          getUnitCountForSpace(space.id),
-        ]);
-        counts[space.id] = { items: ic, units: uc };
+      for (const id of spaceIds) {
+        counts[id] = { items: itemsRes[id] || 0, units: unitsRes[id] || 0 };
       }
       setSpaceCounts(counts);
     }
-    if (spaces.length > 0) loadCounts();
-    else setSpaceCounts({});
+    loadCounts();
   }, [spaces]);
 
   // Load document counts whenever items change (single batch query)

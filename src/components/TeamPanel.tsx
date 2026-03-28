@@ -232,14 +232,14 @@ export default function TeamPanel({ spaces }: TeamPanelProps) {
       body: JSON.stringify({ action: "get_assignments", userId: memberId }),
     });
     const existing = await res.json();
-    if (Array.isArray(existing)) {
-      for (const a of existing) {
-        await authFetch("/api/users", {
+    if (Array.isArray(existing) && existing.length > 0) {
+      await Promise.all(existing.map((a: Record<string, string>) =>
+        authFetch("/api/users", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "unassign", userId: memberId, spaceId: a.space_id, unitId: a.unit_id }),
-        });
-      }
+        })
+      ));
     }
     // Assign new
     await authFetch("/api/users", {
