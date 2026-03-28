@@ -365,15 +365,9 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // Queue AI processing
-      aiPromises.push(processWithAI(admin, insertedDoc.id, fileUrl, contentType, orgId, subject, orgCtx));
+      // Process AI immediately for this attachment (sequential to avoid timeout)
+      await processWithAI(admin, insertedDoc.id, fileUrl, contentType, orgId, subject, orgCtx).catch((err) => console.error("AI error:", err));
       processed++;
-    }
-
-    // Run AI processing with a timeout — don't let SendGrid timeout waiting
-    if (aiPromises.length > 0) {
-      const timeout = new Promise<void>((resolve) => setTimeout(resolve, 50000)); // 50s max
-      await Promise.race([Promise.all(aiPromises), timeout]);
     }
 
     console.log("Processed", processed, "attachments for org:", orgId);

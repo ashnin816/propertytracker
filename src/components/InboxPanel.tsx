@@ -43,6 +43,14 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
     if (effectiveOrgId) loadDocs();
   }, [effectiveOrgId]);
 
+  // Poll for AI processing updates — if any docs are still analyzing, refresh every 5s
+  useEffect(() => {
+    const hasAnalyzing = docs.some((d) => !d.extractedText && !d.suggestedMatchReason && (d.fileType.startsWith("image/") || d.fileType === "application/pdf"));
+    if (!hasAnalyzing || !effectiveOrgId) return;
+    const interval = setInterval(() => loadDocs(), 5000);
+    return () => clearInterval(interval);
+  }, [docs, effectiveOrgId]);
+
   function mapDoc(r: Record<string, unknown>): InboxDocument {
     const space = r.spaces as Record<string, unknown> | null;
     const item = r.items as Record<string, unknown> | null;
