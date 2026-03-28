@@ -43,13 +43,30 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
     if (effectiveOrgId) loadDocs();
   }, [effectiveOrgId]);
 
-  // Poll for AI processing updates — if any docs are still analyzing, refresh every 5s
+  // Poll for AI processing updates — lightweight check, only update changed docs
   useEffect(() => {
-    const hasAnalyzing = docs.some((d) => !d.extractedText && !d.suggestedMatchReason && (d.fileType.startsWith("image/") || d.fileType === "application/pdf"));
-    if (!hasAnalyzing || !effectiveOrgId) return;
-    const interval = setInterval(() => loadDocs(), 5000);
+    const analyzingIds = docs.filter((d) => !d.extractedText && !d.suggestedMatchReason && (d.fileType.startsWith("image/") || d.fileType === "application/pdf")).map((d) => d.id);
+    if (analyzingIds.length === 0 || !effectiveOrgId) return;
+
+    const interval = setInterval(async () => {
+      const res = await authFetch(`/api/inbox?org_id=${effectiveOrgId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const freshDocs = Array.isArray(data) ? data.map(mapDoc) : [];
+      // Only update docs that were analyzing and now have results
+      let changed = false;
+      for (const id of analyzingIds) {
+        const fresh = freshDocs.find((d: InboxDocument) => d.id === id);
+        if (fresh && (fresh.extractedText || fresh.suggestedMatchReason)) {
+          changed = true;
+          break;
+        }
+      }
+      if (changed) loadDocs();
+    }, 5000);
     return () => clearInterval(interval);
-  }, [docs, effectiveOrgId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docs.length, effectiveOrgId]);
 
   function mapDoc(r: Record<string, unknown>): InboxDocument {
     const space = r.spaces as Record<string, unknown> | null;
