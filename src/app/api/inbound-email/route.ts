@@ -294,21 +294,7 @@ export async function POST(req: NextRequest) {
     }
 
     const orgId = org.id;
-    // Pre-fetch org context once for AI matching (shared across all attachments)
-    let orgCtx: OrgContext | undefined;
-    const { data: ctxSpaces } = await admin.from("spaces").select("id, name").eq("org_id", orgId);
-    if (ctxSpaces && ctxSpaces.length > 0) {
-      const ctxSpaceIds = ctxSpaces.map((s: { id: string }) => s.id);
-      const { data: ctxItems } = await admin.from("items").select("id, name, space_id").in("space_id", ctxSpaceIds);
-      const ctxJson = ctxSpaces.map((s: { id: string; name: string }) => ({
-        spaceId: s.id, spaceName: s.name,
-        items: (ctxItems || []).filter((i: { space_id: string }) => i.space_id === s.id).map((i: { id: string; name: string }) => ({ itemId: i.id, itemName: i.name })),
-      }));
-      orgCtx = { spaces: ctxSpaces, items: ctxItems || [], orgContextJson: JSON.stringify(ctxJson, null, 2) };
-    }
-
     let processed = 0;
-    const aiPromises: Promise<void>[] = [];
 
     for (let i = 1; i <= numAttachments; i++) {
       const file = formData.get(`attachment${i}`) as File | null;
@@ -365,8 +351,6 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // Process AI immediately for this attachment (sequential to avoid timeout)
-      await processWithAI(admin, insertedDoc.id, fileUrl, contentType, orgId, subject, orgCtx).catch((err) => console.error("AI error:", err));
       processed++;
     }
 

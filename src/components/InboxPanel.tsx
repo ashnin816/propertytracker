@@ -43,28 +43,29 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
     if (effectiveOrgId) loadDocs();
   }, [effectiveOrgId]);
 
-  // Poll for AI processing updates — lightweight check, only update changed docs
+  // Process unanalyzed docs one at a time via queue endpoint
   useEffect(() => {
-    const analyzingIds = docs.filter((d) => !d.extractedText && !d.suggestedMatchReason && (d.fileType.startsWith("image/") || d.fileType === "application/pdf")).map((d) => d.id);
-    if (analyzingIds.length === 0 || !effectiveOrgId) return;
+    const hasUnprocessed = docs.some((d) => !d.extractedText && !d.suggestedMatchReason && (d.fileType.startsWith("image/") || d.fileType === "application/pdf"));
+    if (!hasUnprocessed || !effectiveOrgId) return;
 
-    const interval = setInterval(async () => {
-      const res = await authFetch(`/api/inbox?org_id=${effectiveOrgId}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      const freshDocs = Array.isArray(data) ? data.map(mapDoc) : [];
-      // Only update docs that were analyzing and now have results
-      let changed = false;
-      for (const id of analyzingIds) {
-        const fresh = freshDocs.find((d: InboxDocument) => d.id === id);
-        if (fresh && (fresh.extractedText || fresh.suggestedMatchReason)) {
-          changed = true;
-          break;
-        }
+    let cancelled = false;
+    async function processNext() {
+      if (cancelled) return;
+      const res = await authFetch("/api/process-inbox", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId: effectiveOrgId }),
+      });
+      if (!res.ok || cancelled) return;
+      const result = await res.json();
+      if (result.processed && !cancelled) {
+        await loadDocs();
+        // Check if more to process
+        setTimeout(processNext, 1000);
       }
-      if (changed) loadDocs();
-    }, 5000);
-    return () => clearInterval(interval);
+    }
+    processNext();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docs.length, effectiveOrgId]);
 
