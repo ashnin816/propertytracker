@@ -2012,25 +2012,27 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
               <h2 className="text-lg font-bold dark:text-white">Change Icon</h2>
               <p className="text-sm text-gray-400 mt-1">Choose an icon for this asset</p>
             </div>
-            <div className="px-6 pb-6 grid grid-cols-5 gap-2 overflow-y-auto flex-1 min-h-0">
-              {ITEM_PRESETS.map((p) => (
-                <button key={p.key} onClick={async () => {
-                  await updateItem(changeIconTarget.id, { icon: p.key });
-                  if (selectedUnitId) setItems(await getItemsForUnit(selectedUnitId));
-                  else if (selectedSpaceId) {
-                    const spaceItems = await getItemsForSpace(selectedSpaceId);
-                    setItems(spaceItems.filter((i) => !i.unitId));
-                  }
-                  setChangeIconTarget(null);
-                  toast(`Icon changed`);
-                }}
-                  className={`flex flex-col items-center gap-1 rounded-xl p-2 cursor-pointer transition-all ${
-                    changeIconTarget.currentIcon === p.key ? "ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30" : "hover:bg-gray-100 dark:hover:bg-gray-800"
-                  }`}>
-                  <div className="w-9 h-9" dangerouslySetInnerHTML={{ __html: p.svg }} />
-                  <span className="text-[9px] text-gray-500 dark:text-gray-400 leading-tight text-center truncate w-full">{p.label}</span>
-                </button>
-              ))}
+            <div className="overflow-y-auto flex-1 min-h-0 px-5 pb-5">
+              <div className="grid grid-cols-5 gap-2 p-1">
+                {ITEM_PRESETS.map((p) => (
+                  <button key={p.key} onClick={async () => {
+                    await updateItem(changeIconTarget.id, { icon: p.key });
+                    if (selectedUnitId) setItems(await getItemsForUnit(selectedUnitId));
+                    else if (selectedSpaceId) {
+                      const spaceItems = await getItemsForSpace(selectedSpaceId);
+                      setItems(spaceItems.filter((i) => !i.unitId));
+                    }
+                    setChangeIconTarget(null);
+                    toast(`Icon changed`);
+                  }}
+                    className={`flex flex-col items-center gap-1 rounded-xl p-2 cursor-pointer transition-all ${
+                      changeIconTarget.currentIcon === p.key ? "ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30" : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                    }`}>
+                    <div className="w-9 h-9" dangerouslySetInnerHTML={{ __html: p.svg }} />
+                    <span className="text-[9px] text-gray-500 dark:text-gray-400 leading-tight text-center truncate w-full">{p.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
