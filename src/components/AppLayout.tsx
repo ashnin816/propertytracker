@@ -14,6 +14,7 @@ import {
   globalSearch, SearchResult, getRecentActivity, getAllDocumentsWithContext,
   getDocument, getInboxCount, getItemCountsForSpaces, getUnitCountsForSpaces,
 } from "@/lib/supabase-storage";
+import { authFetch } from "@/lib/supabase";
 import { getSpaceIcon, getSpaceColors, getItemPreset, getCategoryColors, getPresetsForSpaceType, hasUnits, ITEM_PRESETS } from "@/lib/presets";
 import { getCustomIcon } from "@/lib/icons";
 import { timeAgo } from "@/lib/time";
@@ -41,6 +42,7 @@ import TeamPanel from "./TeamPanel";
 import InboxPanel from "./InboxPanel";
 import InsightsPanel from "./InsightsPanel";
 import WelcomeWizard from "./WelcomeWizard";
+import NotificationCenter, { NotificationItem } from "./NotificationCenter";
 import RenameModal from "./RenameModal";
 import BulkUnitsModal from "./BulkUnitsModal";
 
@@ -96,6 +98,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [uploadCount, setUploadCount] = useState({ current: 0, total: 0 });
   const [inboxCount, setInboxCount] = useState(0);
+  const [insightsData, setInsightsData] = useState<{ expiring: { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; expiryDate: string; daysRemaining: number }[]; missingInsurance: { spaceId: string; name: string }[] } | null>(null);
 
   // State for modal context data (replaces inline sync calls in JSX)
   const [contextDeleteSpaceData, setContextDeleteSpaceData] = useState<{ space: Space; itemCount: number } | null>(null);
@@ -145,6 +148,45 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   const canEditStructure = role === "org_admin" || role === "super_admin" || role === "manager"; // add/edit/delete units & assets
   const canUpload = role !== "tenant"; // org_admin, manager, technician
   const canDelete = role === "org_admin" || role === "super_admin" || role === "manager";
+
+  // Compute notifications on-the-fly from insights data + inbox count
+  const notifications: NotificationItem[] = (() => {
+    const items: NotificationItem[] = [];
+    if (insightsData?.expiring) {
+      for (const doc of insightsData.expiring) {
+        const urgency = doc.daysRemaining <= 7 ? "critical" : doc.daysRemaining <= 30 ? "warning" : doc.daysRemaining <= 60 ? "notice" : "info";
+        items.push({
+          id: `exp-${doc.docId}`,
+          type: "expiring",
+          title: doc.docName,
+          subtitle: `${doc.spaceName} · ${doc.itemName} · ${doc.daysRemaining}d`,
+          urgency,
+          action: () => { selectSpace(doc.spaceId); setTimeout(() => selectItem(doc.itemId), 300); },
+        });
+      }
+    }
+    if (inboxCount > 0) {
+      items.push({
+        id: "inbox",
+        type: "inbox",
+        title: `${inboxCount} pending document${inboxCount !== 1 ? "s" : ""}`,
+        subtitle: "Waiting to be filed",
+        action: () => { setView("inbox"); setSelectedSpaceId(null); setSidebarOpen(false); },
+      });
+    }
+    if (insightsData?.missingInsurance) {
+      for (const space of insightsData.missingInsurance) {
+        items.push({
+          id: `ins-${space.spaceId}`,
+          type: "insurance",
+          title: `${space.name} — no insurance`,
+          subtitle: "Upload insurance documentation",
+          action: () => selectSpace(space.spaceId),
+        });
+      }
+    }
+    return items;
+  })();
 
   // Update selectedSpace when selectedSpaceId changes
   useEffect(() => {
@@ -222,9 +264,13 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
       const effectiveOrgId = mirrorOrgId || authUser.orgId;
       if (effectiveOrgId && (canAddProperties || canEditStructure)) {
         getInboxCount(effectiveOrgId).then(setInboxCount);
+        authFetch(`/api/insights?org_id=${effectiveOrgId}`).then(r => r.json()).then(d => { if (d.counts) setInsightsData(d); });
         // Poll every 60 seconds
         const interval = setInterval(() => {
-          if (effectiveOrgId) getInboxCount(effectiveOrgId).then(setInboxCount);
+          if (effectiveOrgId) {
+            getInboxCount(effectiveOrgId).then(setInboxCount);
+            authFetch(`/api/insights?org_id=${effectiveOrgId}`).then(r => r.json()).then(d => { if (d.counts) setInsightsData(d); });
+          }
         }, 60000);
         return () => clearInterval(interval);
       }
@@ -1127,6 +1173,11 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
               document.body
             )}
           </div>
+
+          {/* Notifications */}
+          {authUser && (canAddProperties || canEditStructure) && (
+            <NotificationCenter notifications={notifications} />
+          )}
 
           {/* Inbox */}
           {authUser && (canAddProperties || canEditStructure) && (
