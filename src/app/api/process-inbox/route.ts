@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
         body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001", max_tokens: 4000,
+          model: "claude-haiku-4-5-20251001", max_tokens: 4000, temperature: 0,
           messages: [{ role: "user", content: [
             { type: "image", source: { type: "base64", media_type: doc.file_type, data: base64 } },
             { type: "text", text: ANALYZE_IMAGE_PROMPT },
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
         const analyzeRes = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-          body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000, messages }),
+          body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000, temperature: 0, messages }),
         });
 
         if (analyzeRes.ok) {
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
         body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001", max_tokens: 500,
+          model: "claude-haiku-4-5-20251001", max_tokens: 500, temperature: 0,
           messages: [{ role: "user", content: `Given this document:\n- Name: "${smartName || "Unknown"}"\n- Content: "${matchContext.slice(0, 1000)}"\n\nAnd these properties and assets:\n${JSON.stringify(orgContext, null, 2)}\n\nWhich property and asset does this belong to?\nReturn JSON: { "space_id": "...", "item_id": "...", "reason": "..." }\nIf property only: { "space_id": "...", "item_id": null, "reason": "..." }\nIf no match: { "space_id": null, "item_id": null, "reason": "No clear match" }\nReturn ONLY valid JSON.` }],
         }),
       });
