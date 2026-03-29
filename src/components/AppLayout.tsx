@@ -1384,11 +1384,15 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
             }} />
           )}
 
+          {/* Shared hidden file input for upload button */}
+          {canUpload && (
+            <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
+              onChange={handleSpaceUpload} className="hidden" id="space-doc-upload" />
+          )}
+
           {/* SPACE VIEW */}
           {view === "space" && selectedSpace && spaceColors && spaceIcon && (
             <div className="p-4 h-full">
-              <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
-                onChange={handleSpaceUpload} className="hidden" id="space-doc-upload" />
               {items.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center">
                   <span className="text-4xl mb-3 block">{spaceIcon.emoji}</span>
