@@ -13,12 +13,14 @@ export async function analyzeDocument(
   const isImage = mimeType.startsWith("image/");
   const isPdf = mimeType === "application/pdf";
 
-  const dataToSend = fileDataUrl;
   let sendMimeType = mimeType;
 
   if (isPdf) {
     sendMimeType = "text/plain";
   }
+
+  // For text-based analysis, truncate to 3000 chars to match inbox flow
+  const dataToSend = isImage ? fileDataUrl : fileDataUrl.slice(0, 3000);
 
   const response = await authFetch("/api/analyze", {
     method: "POST",
