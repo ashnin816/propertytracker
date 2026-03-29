@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
         body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001", max_tokens: 2000,
+          model: "claude-haiku-4-5-20251001", max_tokens: 4000,
           messages: [{ role: "user", content: [
             { type: "image", source: { type: "base64", media_type: doc.file_type, data: base64 } },
             { type: "text", text: ANALYZE_IMAGE_PROMPT },
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
         const analyzeRes = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-          body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 2000, messages }),
+          body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000, messages }),
         });
 
         if (analyzeRes.ok) {
