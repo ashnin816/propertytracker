@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     .select("id, file_url, file_type, file_name, subject, org_id")
     .eq("org_id", orgId)
     .eq("status", "pending")
-    .is("extracted_text", null)
+    .or("extracted_text.is.null,extracted_text.like.%```%")
     .in("file_type", ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"])
     .order("created_at", { ascending: true })
     .limit(1)

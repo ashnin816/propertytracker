@@ -45,7 +45,8 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
 
   // Process unanalyzed docs one at a time via queue endpoint
   useEffect(() => {
-    const hasUnprocessed = docs.some((d) => !d.extractedText && !d.suggestedMatchReason && (d.fileType.startsWith("image/") || d.fileType === "application/pdf"));
+    const needsProcessing = (d: InboxDocument) => (!d.extractedText || d.extractedText.includes("```")) && !d.suggestedMatchReason && (d.fileType.startsWith("image/") || d.fileType === "application/pdf");
+    const hasUnprocessed = docs.some(needsProcessing);
     if (!hasUnprocessed || !effectiveOrgId) return;
 
     let cancelled = false;
@@ -292,7 +293,7 @@ export default function InboxPanel({ spaces, orgId: orgIdProp, onAssigned }: Inb
               const hasFullMatch = !!(doc.suggestedSpaceId && doc.suggestedItemId);
               const hasPartialMatch = !!(doc.suggestedSpaceId && !doc.suggestedItemId);
               const hasAiSuggestion = hasFullMatch || hasPartialMatch;
-              const isAnalyzing = !doc.extractedText && !doc.suggestedMatchReason && (doc.fileType.startsWith("image/") || doc.fileType === "application/pdf");
+              const isAnalyzing = (!doc.extractedText || doc.extractedText.includes("```")) && !doc.suggestedMatchReason && (doc.fileType.startsWith("image/") || doc.fileType === "application/pdf");
               const aiProcessed = !!(doc.extractedText || doc.suggestedMatchReason);
               // Name is AI-generated if AI processed and name doesn't look like a raw filename
               // Raw filenames end with common extensions like .pdf, .jpg, .png, .doc, etc.
