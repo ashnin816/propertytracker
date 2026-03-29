@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCallerProfile } from "@/lib/api-auth";
+import { ANALYZE_IMAGE_PROMPT, ANALYZE_TEXT_PROMPT } from "@/lib/ai-prompts";
 
 export const runtime = "nodejs";
 
@@ -33,41 +34,13 @@ export async function POST(req: NextRequest) {
           },
           {
             type: "text" as const,
-            text: `Analyze this document image. Return a JSON object with:
-1. "name": A short, descriptive name for this document (e.g. "Home Depot Receipt - $849.99" or "Dishwasher Warranty - Expires 2028"). Max 60 characters.
-2. "extractedText": All readable text from the document.
-3. "details": An object with any key details found, such as:
-   - "store" or "company": The business name
-   - "amount" or "total": Dollar amount
-   - "date": Any relevant date
-   - "product": What the document is about
-   - "type": Document type (receipt, warranty, invoice, manual, insurance, contract, etc.)
-   - "expiration": Expiration date if applicable
-   - Any other relevant fields
-
-Return ONLY valid JSON, no markdown or explanation.`,
+            text: ANALYZE_IMAGE_PROMPT,
           },
         ]
       : [
           {
             type: "text" as const,
-            text: `Analyze this document text and return a JSON object with:
-1. "name": A short, descriptive name for this document (e.g. "Home Depot Receipt - $849.99" or "Dishwasher Warranty - Expires 2028"). Max 60 characters.
-2. "extractedText": A clean summary of the key content.
-3. "details": An object with any key details found, such as:
-   - "store" or "company": The business name
-   - "amount" or "total": Dollar amount
-   - "date": Any relevant date
-   - "product": What the document is about
-   - "type": Document type (receipt, warranty, invoice, manual, insurance, contract, etc.)
-   - "expiration": Expiration date if applicable
-   - Any other relevant fields
-
-Here is the document text:
-
-${imageData}
-
-Return ONLY valid JSON, no markdown or explanation.`,
+            text: ANALYZE_TEXT_PROMPT + imageData + "\n\nReturn ONLY valid JSON.",
           },
         ];
 

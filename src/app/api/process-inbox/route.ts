@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import pdfParse from "pdf-parse-new";
+import { ANALYZE_IMAGE_PROMPT, ANALYZE_TEXT_PROMPT, ANALYZE_PDF_PROMPT } from "@/lib/ai-prompts";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
           model: "claude-haiku-4-5-20251001", max_tokens: 2000,
           messages: [{ role: "user", content: [
             { type: "image", source: { type: "base64", media_type: doc.file_type, data: base64 } },
-            { type: "text", text: `Analyze this document image. Return a JSON object with:\n1. "name": A short, descriptive name (max 60 chars)\n2. "extractedText": All readable text\n3. "details": Key details (store, amount, date, product, type, expiration, etc.)\n\nReturn ONLY valid JSON.` },
+            { type: "text", text: ANALYZE_IMAGE_PROMPT },
           ]}],
         }),
       });
@@ -94,10 +95,10 @@ export async function POST(req: NextRequest) {
         try { const pdfData = await pdfParse(pdfBuffer); pdfText = pdfData.text?.trim() || ""; } catch {}
 
         const messages = pdfText.length > 20
-          ? [{ role: "user" as const, content: `Analyze this document text and return JSON with "name", "extractedText", "details".\n\n${pdfText.slice(0, 3000)}\n\nReturn ONLY valid JSON.` }]
+          ? [{ role: "user" as const, content: ANALYZE_TEXT_PROMPT + pdfText.slice(0, 3000) }]
           : [{ role: "user" as const, content: [
               { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: pdfBuffer.toString("base64") } },
-              { type: "text" as const, text: `Analyze this PDF. Return JSON with "name", "extractedText", "details".\n\nReturn ONLY valid JSON.` },
+              { type: "text" as const, text: ANALYZE_PDF_PROMPT },
             ]}];
 
         const analyzeRes = await fetch("https://api.anthropic.com/v1/messages", {
