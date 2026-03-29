@@ -1288,17 +1288,50 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
 
         {/* Content area */}
         {/* Mobile search bar */}
-        <div id="mobile-search" className="hidden sm:hidden px-4 py-2 border-b border-gray-200/60 dark:border-gray-800 bg-white dark:bg-[#0c1222]">
-          <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search..."
-              className="w-full pl-9 pr-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm outline-none focus:bg-white dark:focus:bg-[#1a2332] border border-transparent focus:border-gray-300 dark:focus:border-gray-600 transition-all no-min-size dark:text-white"
-            />
+        <div id="mobile-search" className="hidden sm:hidden border-b border-gray-200/60 dark:border-gray-800 bg-white dark:bg-[#0c1222]">
+          <div className="px-4 py-2">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search spaces, assets, documents..."
+                className="w-full pl-9 pr-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm outline-none focus:bg-white dark:focus:bg-[#1a2332] border border-transparent focus:border-gray-300 dark:focus:border-gray-600 transition-all no-min-size dark:text-white"
+              />
+            </div>
           </div>
+          {searchQuery && searchResults.length > 0 && (
+            <div className="px-2 pb-2 max-h-64 overflow-y-auto">
+              {searchResults.map((r) => {
+                const preset = (r.type === "item" || r.type === "document") && r.icon && r.icon !== "custom" && !r.icon.startsWith("icon-") ? getItemPreset(r.icon) : null;
+                const itemColors = preset ? getCategoryColors(preset.category) : null;
+                return (
+                  <button key={`${r.type}-${r.id}`} onClick={() => { handleSearchSelect(r); setSearchQuery(""); const el = document.getElementById("mobile-search"); el?.classList.add("hidden"); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-left no-min-size">
+                    {r.type === "document" ? (
+                      <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      </div>
+                    ) : preset ? (
+                      <div className={`w-7 h-7 flex-shrink-0 ${itemColors?.icon || "text-gray-400"}`} dangerouslySetInnerHTML={{ __html: preset.svg }} />
+                    ) : (
+                      <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate dark:text-gray-200">{r.name}</p>
+                      <p className="text-xs text-gray-400 truncate">{r.type === "document" ? `${r.itemName} · ${r.spaceName}` : r.spaceName || r.type}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {searchQuery && searchResults.length === 0 && (
+            <div className="px-4 pb-3 text-sm text-gray-400">No results for &ldquo;{searchQuery}&rdquo;</div>
+          )}
         </div>
 
         <main className="flex-1 overflow-y-auto relative">
