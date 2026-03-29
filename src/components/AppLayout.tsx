@@ -127,6 +127,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
   const [editDocName, setEditDocName] = useState("");
+  const [editingDocType, setEditingDocType] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState(false);
   const [editName, setEditName] = useState("");
 
@@ -1779,7 +1780,13 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                 ) : (
                   <div className="card rounded-2xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700/50">
                     {documents.map((doc) => {
-                      const details = parseDocDetails(doc.extractedText);
+                      const regexDetails = parseDocDetails(doc.extractedText);
+                      const details = {
+                        type: doc.details?.type || regexDetails?.type,
+                        amount: doc.details?.amount || regexDetails?.amount,
+                        expiry: doc.details?.expiration || doc.details?.expiry || regexDetails?.expiry,
+                        date: doc.details?.date || regexDetails?.date,
+                      };
                       const isImage = doc.fileType.startsWith("image/");
                       const hasRealUrl = doc.fileUrl && doc.fileUrl !== "demo";
                       return (
@@ -1803,10 +1810,39 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                               <p className="text-sm font-medium truncate dark:text-gray-200">{doc.name}</p>
                             )}
                             {/* Rich details */}
-                            {details && (
+                            {(details.type || details.amount || details.expiry || details.date) && (
                               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                {details.type && (
-                                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 no-min-size">{details.type}</span>
+                                {editingDocType === doc.id ? (
+                                  <select
+                                    className="text-[10px] font-medium px-1 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-400 text-gray-700 dark:text-gray-200 no-min-size outline-none cursor-pointer"
+                                    value={doc.details?.type || details.type || ""}
+                                    autoFocus
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={async (e) => {
+                                      e.stopPropagation();
+                                      const newType = e.target.value;
+                                      const newDetails = { ...(doc.details || {}), type: newType || undefined };
+                                      if (!newType) delete (newDetails as Record<string, unknown>).type;
+                                      await updateDocument(doc.id, { details: newDetails as Record<string, string> });
+                                      if (selectedItemId) setDocuments(await getDocumentsForItem(selectedItemId));
+                                      setEditingDocType(null);
+                                      toast(`Type set to "${newType}"`);
+                                    }}
+                                    onBlur={() => setEditingDocType(null)}
+                                  >
+                                    <option value="">No type</option>
+                                    {["receipt", "warranty", "invoice", "insurance", "contract", "lease", "inspection", "certificate", "permit", "estimate", "manual"].map((t) => (
+                                      <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <span
+                                    className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 no-min-size hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors"
+                                    title="Click to change type"
+                                    onClick={(e) => { e.stopPropagation(); setEditingDocType(doc.id); }}
+                                  >
+                                    {details.type || "Set type"}
+                                  </span>
                                 )}
                                 {details.amount && (
                                   <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 no-min-size">{details.amount}</span>
@@ -1818,6 +1854,15 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                                   <span className="text-[10px] text-gray-400 no-min-size">{details.date}</span>
                                 )}
                               </div>
+                            )}
+                            {!details.type && !details.amount && !details.expiry && !details.date && (
+                              <span
+                                className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-50 dark:bg-gray-800 text-gray-400 no-min-size hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors mt-0.5 inline-block"
+                                title="Click to set document type"
+                                onClick={(e) => { e.stopPropagation(); setEditingDocType(doc.id); }}
+                              >
+                                + Set type
+                              </span>
                             )}
                             <div className="flex items-center gap-2 mt-0.5">
                               <span className="text-[10px] text-gray-400">{timeAgo(doc.createdAt)}</span>
