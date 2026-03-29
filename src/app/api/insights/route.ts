@@ -69,12 +69,12 @@ export async function GET(req: NextRequest) {
   // Parallel: units, items
   const [unitsRes, itemsRes] = await Promise.all([
     admin.from("units").select("id", { count: "exact", head: true }).in("space_id", spaceIds),
-    admin.from("items").select("id, name, space_id").in("space_id", spaceIds),
+    admin.from("items").select("id, name, space_id, icon").in("space_id", spaceIds),
   ]);
 
   const items = itemsRes.data || [];
   const itemIds = items.map((i: { id: string }) => i.id);
-  const itemMap = Object.fromEntries(items.map((i: { id: string; name: string; space_id: string }) => [i.id, { name: i.name, spaceId: i.space_id }]));
+  const itemMap = Object.fromEntries(items.map((i: { id: string; name: string; space_id: string; icon: string | null }) => [i.id, { name: i.name, spaceId: i.space_id, icon: i.icon }]));
   const spaceMap = Object.fromEntries((spaces || []).map((s: { id: string; name: string }) => [s.id, s.name]));
 
   // Documents — single query with all we need
@@ -92,12 +92,12 @@ export async function GET(req: NextRequest) {
   // Process documents for insights
   const now = new Date();
   const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
-  const expiring: { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; expiryDate: string; daysRemaining: number }[] = [];
+  const expiring: { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; itemIcon: string | null; expiryDate: string; daysRemaining: number }[] = [];
   const typeCounts: Record<string, number> = {};
   const spacesWithInsurance = new Set<string>();
 
   // Track latest expiry per asset+type to avoid duplicates from replaced docs
-  const latestExpiry: Record<string, { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; expiryDate: Date; daysRemaining: number }> = {};
+  const latestExpiry: Record<string, { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; itemIcon: string | null; expiryDate: Date; daysRemaining: number }> = {};
 
   for (const doc of docs || []) {
     const storedDetails = doc.details as Record<string, string> | null;
@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
           latestExpiry[key] = {
             docId: doc.id, docName: doc.name,
             spaceId: item.spaceId, spaceName: spaceMap[item.spaceId] || "Unknown",
-            itemId: doc.item_id, itemName: item.name,
+            itemId: doc.item_id, itemName: item.name, itemIcon: item.icon || null,
             expiryDate, daysRemaining: Math.ceil(diff / (24 * 60 * 60 * 1000)),
           };
         }
@@ -137,7 +137,7 @@ export async function GET(req: NextRequest) {
       expiring.push({
         docId: entry.docId, docName: entry.docName,
         spaceId: entry.spaceId, spaceName: entry.spaceName,
-        itemId: entry.itemId, itemName: entry.itemName,
+        itemId: entry.itemId, itemName: entry.itemName, itemIcon: entry.itemIcon,
         expiryDate: entry.expiryDate.toISOString(),
         daysRemaining: entry.daysRemaining,
       });

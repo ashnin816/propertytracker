@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "./AuthProvider";
 import { authFetch } from "@/lib/supabase";
+import { getItemPreset, getCategoryColors } from "@/lib/presets";
+import { getCustomIcon } from "@/lib/icons";
 
 interface InsightsData {
   counts: { properties: number; units: number; assets: number; documents: number };
-  expiring: { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; expiryDate: string; daysRemaining: number }[];
+  expiring: { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; itemIcon?: string | null; expiryDate: string; daysRemaining: number }[];
   typeCounts: Record<string, number>;
   missingInsurance: { spaceId: string; name: string }[];
 }
@@ -111,13 +113,25 @@ export default function InsightsPanel({ orgId: orgIdProp, onNavigateToItem, onNa
             </div>
           ) : (
             <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
-              {data.expiring.map((item) => (
+              {data.expiring.map((item) => {
+                const preset = item.itemIcon && item.itemIcon !== "custom" && !item.itemIcon.startsWith("icon-") ? getItemPreset(item.itemIcon) : null;
+                const colors = preset ? getCategoryColors(preset.category) : null;
+                const customIcon = item.itemIcon?.startsWith("icon-") ? getCustomIcon(item.itemIcon) : null;
+                return (
                 <div key={item.docId}
                   onClick={() => onNavigateToItem?.(item.spaceId, item.itemId)}
                   className={`px-5 py-3 flex items-center gap-3 ${onNavigateToItem ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03]" : ""} transition-colors`}>
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    item.daysRemaining <= 30 ? "bg-red-500" : item.daysRemaining <= 60 ? "bg-amber-500" : "bg-yellow-400"
-                  }`} />
+                  {(preset?.svg || customIcon?.svg) ? (
+                    <div className={`w-7 h-7 flex-shrink-0 ${colors?.icon || "text-gray-400"}`} dangerouslySetInnerHTML={{ __html: (preset?.svg || customIcon?.svg)! }} />
+                  ) : (
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      item.daysRemaining <= 30 ? "bg-red-50 dark:bg-red-900/20" : item.daysRemaining <= 60 ? "bg-amber-50 dark:bg-amber-900/20" : "bg-yellow-50 dark:bg-yellow-900/20"
+                    }`}>
+                      <div className={`w-2 h-2 rounded-full ${
+                        item.daysRemaining <= 30 ? "bg-red-500" : item.daysRemaining <= 60 ? "bg-amber-500" : "bg-yellow-400"
+                      }`} />
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium dark:text-gray-200 truncate">{item.docName}</p>
                     <p className="text-[11px] text-gray-400 truncate">{item.spaceName} → {item.itemName}</p>
@@ -129,7 +143,8 @@ export default function InsightsPanel({ orgId: orgIdProp, onNavigateToItem, onNa
                     <p className="text-[10px] text-gray-400">{new Date(item.expiryDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

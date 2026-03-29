@@ -98,7 +98,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [uploadCount, setUploadCount] = useState({ current: 0, total: 0 });
   const [inboxCount, setInboxCount] = useState(0);
-  const [insightsData, setInsightsData] = useState<{ expiring: { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; expiryDate: string; daysRemaining: number }[]; missingInsurance: { spaceId: string; name: string }[] } | null>(null);
+  const [insightsData, setInsightsData] = useState<{ expiring: { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; itemIcon?: string | null; expiryDate: string; daysRemaining: number }[]; missingInsurance: { spaceId: string; name: string }[] } | null>(null);
 
   // State for modal context data (replaces inline sync calls in JSX)
   const [contextDeleteSpaceData, setContextDeleteSpaceData] = useState<{ space: Space; itemCount: number } | null>(null);
