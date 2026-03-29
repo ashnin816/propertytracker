@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       : [
           {
             type: "text" as const,
-            text: ANALYZE_TEXT_PROMPT + imageData + "\n\nReturn ONLY valid JSON.",
+            text: ANALYZE_TEXT_PROMPT + imageData,
           },
         ];
 
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 2000,
+        max_tokens: 4000,
         messages: [
           {
             role: "user",
