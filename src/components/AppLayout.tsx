@@ -162,7 +162,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
           title: doc.docName,
           subtitle: `${doc.spaceName} · ${doc.itemName} · ${doc.daysRemaining}d`,
           urgency,
-          action: () => { selectSpace(doc.spaceId); setTimeout(() => selectItem(doc.itemId), 300); },
+          action: () => navigateToItem(doc.spaceId, doc.itemId),
         });
       }
     }
@@ -381,6 +381,18 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
     setSelectedItemId(id);
     setTimeout(async () => {
       setDocuments(await getDocumentsForItem(id));
+      setView("item");
+      setTransitioning(false);
+    }, 150);
+  }
+
+  async function navigateToItem(spaceId: string, itemId: string) {
+    setTransitioning(true);
+    setSelectedSpaceId(spaceId);
+    setSelectedItemId(itemId);
+    setSidebarOpen(false);
+    setTimeout(async () => {
+      setDocuments(await getDocumentsForItem(itemId));
       setView("item");
       setTransitioning(false);
     }, 150);
@@ -1308,7 +1320,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
           {view === "home" && (canAddProperties || canEditStructure) && spaces.length > 0 && (
             <InsightsPanel
               orgId={mirrorOrgId || authUser?.orgId}
-              onNavigateToItem={(spaceId, itemId) => { selectSpace(spaceId); setTimeout(() => selectItem(itemId), 300); }}
+              onNavigateToItem={(spaceId, itemId) => navigateToItem(spaceId, itemId)}
               onNavigateToSpace={(spaceId) => selectSpace(spaceId)}
             />
           )}
