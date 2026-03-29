@@ -1816,7 +1816,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                                   <select
                                     className="text-[10px] font-medium px-1 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-400 text-gray-700 dark:text-gray-200 no-min-size outline-none cursor-pointer"
                                     value={doc.details?.type || details.type || ""}
-                                    autoFocus
+                                    ref={(el) => { if (el) requestAnimationFrame(() => { try { el.showPicker(); } catch { el.focus(); } }); }}
                                     onClick={(e) => e.stopPropagation()}
                                     onChange={async (e) => {
                                       e.stopPropagation();
@@ -1837,11 +1837,12 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                                   </select>
                                 ) : (
                                   <span
-                                    className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 no-min-size hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors"
+                                    className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 no-min-size hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors group/type flex items-center gap-0.5"
                                     title="Click to change type"
                                     onClick={(e) => { e.stopPropagation(); setEditingDocType(doc.id); }}
                                   >
                                     {details.type || "Set type"}
+                                    <svg className="w-2.5 h-2.5 opacity-0 group-hover/type:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                                   </span>
                                 )}
                                 {details.amount && (
@@ -1856,13 +1857,38 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                               </div>
                             )}
                             {!details.type && !details.amount && !details.expiry && !details.date && (
-                              <span
-                                className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-50 dark:bg-gray-800 text-gray-400 no-min-size hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors mt-0.5 inline-block"
-                                title="Click to set document type"
-                                onClick={(e) => { e.stopPropagation(); setEditingDocType(doc.id); }}
-                              >
-                                + Set type
-                              </span>
+                              editingDocType === doc.id ? (
+                                <select
+                                  className="text-[10px] font-medium px-1 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-400 text-gray-700 dark:text-gray-200 no-min-size outline-none cursor-pointer mt-0.5"
+                                  value=""
+                                  ref={(el) => { if (el) requestAnimationFrame(() => { try { el.showPicker(); } catch { el.focus(); } }); }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={async (e) => {
+                                    e.stopPropagation();
+                                    const newType = e.target.value;
+                                    if (!newType) { setEditingDocType(null); return; }
+                                    const newDetails = { ...(doc.details || {}), type: newType };
+                                    await updateDocument(doc.id, { details: newDetails as Record<string, string> });
+                                    if (selectedItemId) setDocuments(await getDocumentsForItem(selectedItemId));
+                                    setEditingDocType(null);
+                                    toast(`Type set to "${newType}"`);
+                                  }}
+                                  onBlur={() => setEditingDocType(null)}
+                                >
+                                  <option value="">Select type...</option>
+                                  {["receipt", "warranty", "invoice", "insurance", "contract", "lease", "inspection", "certificate", "permit", "estimate", "manual"].map((t) => (
+                                    <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span
+                                  className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-50 dark:bg-gray-800 text-gray-400 no-min-size hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors mt-0.5 inline-flex items-center gap-0.5"
+                                  title="Click to set document type"
+                                  onClick={(e) => { e.stopPropagation(); setEditingDocType(doc.id); }}
+                                >
+                                  + Set type
+                                </span>
+                              )
                             )}
                             <div className="flex items-center gap-2 mt-0.5">
                               <span className="text-[10px] text-gray-400">{timeAgo(doc.createdAt)}</span>
