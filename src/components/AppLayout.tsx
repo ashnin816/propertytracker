@@ -1712,6 +1712,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
                           <div className="absolute top-2 right-2 z-10">
                             <ContextMenu items={[
                               { label: "Rename", icon: "rename", onClick: () => setRenameTarget({ type: "item", id: item.id, name: item.name }) },
+                              { label: "Change Icon", icon: "rename", onClick: () => setChangeIconTarget({ id: item.id, currentIcon: item.icon }) },
                               { label: "Delete", icon: "delete", danger: true, onClick: () => setContextDeleteItemId(item.id) },
                             ]} />
                           </div>
@@ -2006,12 +2007,12 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
       )}
       {changeIconTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setChangeIconTarget(null)}>
-          <div className="bg-white dark:bg-[#1a2332] rounded-2xl w-full max-w-md animate-scale-in overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 pt-6 pb-4">
+          <div className="bg-white dark:bg-[#1a2332] rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 pt-6 pb-4 flex-shrink-0">
               <h2 className="text-lg font-bold dark:text-white">Change Icon</h2>
               <p className="text-sm text-gray-400 mt-1">Choose an icon for this asset</p>
             </div>
-            <div className="px-6 pb-6 grid grid-cols-5 gap-2 max-h-80 overflow-y-auto">
+            <div className="px-6 pb-6 grid grid-cols-5 gap-2 overflow-y-auto flex-1 min-h-0">
               {ITEM_PRESETS.map((p) => (
                 <button key={p.key} onClick={async () => {
                   await updateItem(changeIconTarget.id, { icon: p.key });
