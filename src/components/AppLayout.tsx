@@ -593,7 +593,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
           if (file.type.startsWith("image/")) {
             await new Promise((r) => setTimeout(r, 300));
             setAnalyzeModal((prev) => ({ ...prev, stage: "extracting" }));
-            const result = await analyzeDocument(data, file.type);
+            const result = await analyzeDocument(raw, file.type);
             setAnalyzeModal((prev) => ({ ...prev, stage: "naming", extractedText: result.extractedText || null }));
             await new Promise((r) => setTimeout(r, 400));
             await updateDocument(doc.id, { extractedText: result.extractedText || undefined, details: result.details || undefined, ocrStatus: "done" });
