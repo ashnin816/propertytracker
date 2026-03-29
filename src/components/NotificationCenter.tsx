@@ -99,7 +99,7 @@ export default function NotificationCenter({ notifications }: NotificationCenter
       <button
         ref={bellRef}
         onClick={() => setOpen(!open)}
-        className={`relative p-1.5 rounded-lg transition-colors no-min-size ${
+        className={`relative p-1.5 rounded-lg transition-colors no-min-size cursor-pointer ${
           open
             ? "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200"
             : "text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
