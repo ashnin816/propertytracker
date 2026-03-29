@@ -121,10 +121,12 @@ export default function NotificationCenter({ notifications }: NotificationCenter
           <div className="fixed inset-0 z-[200]" onClick={() => setOpen(false)} />
           <div
             ref={dropdownRef}
-            className="fixed w-80 max-h-[28rem] bg-white dark:bg-[#1a2332] rounded-xl shadow-xl border border-gray-200/60 dark:border-gray-700 z-[201] overflow-hidden animate-scale-in flex flex-col"
+            className="fixed max-h-[28rem] bg-white dark:bg-[#1a2332] rounded-xl shadow-xl border border-gray-200/60 dark:border-gray-700 z-[201] overflow-hidden animate-scale-in flex flex-col"
             style={{
               top: rect.bottom + 8,
               right: Math.max(8, window.innerWidth - rect.right),
+              left: window.innerWidth < 400 ? 8 : undefined,
+              width: window.innerWidth < 400 ? undefined : 320,
             }}
           >
             {/* Header */}

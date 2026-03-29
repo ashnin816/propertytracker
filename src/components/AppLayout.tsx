@@ -1058,8 +1058,8 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="h-14 px-4 flex items-center gap-3 border-b border-gray-200/60 dark:border-gray-800 bg-white/90 dark:bg-[#0c1222]/90 backdrop-blur-xl flex-shrink-0">
-          <div className="flex items-center gap-3">
+        <header className="h-14 px-3 sm:px-4 flex items-center gap-2 sm:gap-3 border-b border-gray-200/60 dark:border-gray-800 bg-white/90 dark:bg-[#0c1222]/90 backdrop-blur-xl flex-shrink-0 overflow-hidden">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             {/* Mobile menu button */}
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-1.5 text-gray-400 hover:text-gray-600 rounded-lg no-min-size">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1077,7 +1077,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
             )}
 
             {/* Context title */}
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               {view === "home" && <h1 className="text-base font-semibold dark:text-white">{(canAddProperties || canEditStructure) && spaces.length > 0 ? "Insights" : "Dashboard"}</h1>}
               {view === "team" && <h1 className="text-base font-semibold dark:text-white">Team</h1>}
               {view === "inbox" && <h1 className="text-base font-semibold dark:text-white">Inbox</h1>}
@@ -1112,7 +1112,7 @@ export default function AppLayout({ mirrorOrgId, mirrorOrgName, onExitMirror }: 
             </div>
           </div>
 
-          <div className="flex items-center gap-3 ml-auto">
+          <div className="flex items-center gap-1.5 sm:gap-3 ml-auto flex-shrink-0">
           {/* Upload button in header — space, units, and unit views */}
           {(view === "space" || view === "units" || view === "unit") && canUpload && (
             <button onClick={() => document.getElementById("space-doc-upload")?.click()}
