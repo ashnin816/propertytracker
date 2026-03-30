@@ -10,6 +10,7 @@ interface Organization {
   name: string;
   slug: string;
   plan: string;
+  status: "active" | "suspended";
   created_at: string;
   member_count?: number;
   space_count?: number;
@@ -35,6 +36,7 @@ export default function SuperAdminPanel({ onViewTenant }: SuperAdminPanelProps) 
   const [deleteOrg, setDeleteOrg] = useState<Organization | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadOrgs();
@@ -67,6 +69,14 @@ export default function SuperAdminPanel({ onViewTenant }: SuperAdminPanelProps) 
       setError((err as Error).message || "Failed to delete");
     }
     setDeleting(false);
+  }
+
+  async function handleToggleStatus(org: Organization) {
+    setTogglingId(org.id);
+    const newStatus = org.status === "active" ? "suspended" : "active";
+    await supabase.from("organizations").update({ status: newStatus }).eq("id", org.id);
+    setOrgs((prev) => prev.map((o) => o.id === org.id ? { ...o, status: newStatus } : o));
+    setTogglingId(null);
   }
 
   async function handleCreateTenant(e: React.FormEvent) {
@@ -160,6 +170,11 @@ export default function SuperAdminPanel({ onViewTenant }: SuperAdminPanelProps) 
                         org.plan === "pro" ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400" :
                         "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
                       }`}>{org.plan}</span>
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full no-min-size ${
+                        org.status === "suspended"
+                          ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                          : "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
+                      }`}>{org.status === "suspended" ? "suspended" : "active"}</span>
                       <span className="text-xs text-gray-400">{new Date(org.created_at).toLocaleDateString()}</span>
                     </div>
                     {org.slug !== "admin" && (
@@ -185,6 +200,25 @@ export default function SuperAdminPanel({ onViewTenant }: SuperAdminPanelProps) 
                           <span className="hidden sm:inline">View</span>
                         </button>
                       )}
+                      <button
+                        onClick={() => handleToggleStatus(org)}
+                        disabled={togglingId === org.id}
+                        title={org.status === "suspended" ? "Reactivate" : "Suspend"}
+                        className={`p-2 transition-colors cursor-pointer no-min-size disabled:opacity-40 ${
+                          org.status === "suspended"
+                            ? "text-green-500 hover:text-green-600"
+                            : "text-gray-400 hover:text-amber-500"
+                        }`}>
+                        {org.status === "suspended" ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                          </svg>
+                        )}
+                      </button>
                       <button onClick={() => { setDeleteOrg(org); setDeleteConfirm(""); }}
                         className="p-2 text-gray-400 hover:text-red-500 transition-colors cursor-pointer no-min-size">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -13,6 +13,7 @@ export interface UserProfile {
   orgId: string | null;
   orgName?: string;
   orgSlug?: string;
+  orgStatus?: "active" | "suspended";
   avatarUrl?: string;
   status: "active" | "inactive";
   mustResetPassword?: boolean;
@@ -87,7 +88,7 @@ export async function getProfile(forceRefresh = false): Promise<UserProfile | nu
 
     const [orgResult, assignResult] = await Promise.all([
       needsOrg
-        ? supabase.from("organizations").select("name, slug").eq("id", profile.org_id).single()
+        ? supabase.from("organizations").select("name, slug, status").eq("id", profile.org_id).single()
         : Promise.resolve({ data: null }),
       needsAssignments
         ? authFetch("/api/users", {
@@ -100,6 +101,7 @@ export async function getProfile(forceRefresh = false): Promise<UserProfile | nu
 
     const orgName = orgResult.data?.name;
     const orgSlug = orgResult.data?.slug;
+    const orgStatus = orgResult.data?.status as "active" | "suspended" | undefined;
     let assignments: UserAssignment[] | undefined;
     if (needsAssignments) {
       assignments = Array.isArray(assignResult)
@@ -118,6 +120,7 @@ export async function getProfile(forceRefresh = false): Promise<UserProfile | nu
       orgId: profile.org_id,
       orgName,
       orgSlug,
+      orgStatus,
       avatarUrl: profile.avatar_url,
       status: profile.status || "active",
       mustResetPassword: profile.must_reset_password || false,
