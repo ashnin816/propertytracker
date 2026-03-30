@@ -6,17 +6,44 @@ import { authFetch } from "@/lib/supabase";
 import { getItemPreset, getCategoryColors } from "@/lib/presets";
 import { getCustomIcon } from "@/lib/icons";
 
+type CellStatus = "ok" | "notice" | "warning" | "urgent" | "expired" | "missing";
+
 interface InsightsData {
   counts: { properties: number; units: number; assets: number; documents: number };
   expiring: { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; itemIcon?: string | null; expiryDate: string; daysRemaining: number }[];
   typeCounts: Record<string, number>;
   missingInsurance: { spaceId: string; name: string }[];
+  healthGrid?: Record<string, Record<string, CellStatus>>;
+  healthCategories?: string[];
+  spaces?: { id: string; name: string }[];
 }
 
 interface InsightsPanelProps {
   orgId?: string | null;
   onNavigateToItem?: (spaceId: string, itemId: string) => void;
   onNavigateToSpace?: (spaceId: string) => void;
+}
+
+function cellColor(status: CellStatus) {
+  switch (status) {
+    case "ok": return "bg-emerald-100 dark:bg-emerald-900/30";
+    case "notice": return "bg-yellow-100 dark:bg-yellow-900/30";
+    case "warning": return "bg-amber-100 dark:bg-amber-900/30";
+    case "urgent":
+    case "expired": return "bg-red-100 dark:bg-red-900/30";
+    case "missing": return "bg-gray-100 dark:bg-gray-800";
+  }
+}
+
+function cellDot(status: CellStatus) {
+  switch (status) {
+    case "ok": return "bg-emerald-500";
+    case "notice": return "bg-yellow-500";
+    case "warning": return "bg-amber-500";
+    case "urgent":
+    case "expired": return "bg-red-500";
+    default: return "bg-gray-300";
+  }
 }
 
 export default function InsightsPanel({ orgId: orgIdProp, onNavigateToItem, onNavigateToSpace }: InsightsPanelProps) {
@@ -91,6 +118,71 @@ export default function InsightsPanel({ orgId: orgIdProp, onNavigateToItem, onNa
           </div>
         ))}
       </div>
+
+      {/* Document Health Grid */}
+      {data.healthGrid && data.healthCategories && data.spaces && data.spaces.length > 0 && (
+        <div className="bg-white dark:bg-[#1a2332] rounded-xl border border-gray-200/60 dark:border-gray-800 overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold dark:text-white">Document Health</h2>
+              <p className="text-[11px] text-gray-400 mt-0.5">Compliance status across your portfolio</p>
+            </div>
+            <div className="flex items-center gap-2.5 flex-wrap justify-end">
+              {(["ok", "notice", "warning", "urgent", "missing"] as CellStatus[]).map((s) => (
+                <div key={s} className="flex items-center gap-1">
+                  <div className={`w-2.5 h-2.5 rounded-sm flex-shrink-0 ${cellColor(s)}`} />
+                  <span className="text-[10px] text-gray-400 capitalize">{s === "ok" ? "Good" : s === "notice" ? "Soon" : s === "warning" ? "Warning" : s === "urgent" ? "Urgent" : "Missing"}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px]">
+              <thead>
+                <tr>
+                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider w-[120px] sm:w-[160px]">Property</th>
+                  {data.healthCategories.map((cat) => (
+                    <th key={cat} className="text-center py-2.5 px-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                      <span className="hidden sm:inline">{cat}</span>
+                      <span className="sm:hidden">{cat.slice(0, 4)}</span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
+                {data.spaces.map((space) => (
+                  <tr
+                    key={space.id}
+                    onClick={() => onNavigateToSpace?.(space.id)}
+                    className={`${onNavigateToSpace ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03]" : ""} transition-colors`}
+                  >
+                    <td className="px-4 py-3">
+                      <span className="text-xs font-medium dark:text-gray-300 truncate block max-w-[110px] sm:max-w-[150px]">{space.name}</span>
+                    </td>
+                    {(data.healthCategories || []).map((cat) => {
+                      const status = data.healthGrid![space.id]?.[cat] || "missing";
+                      return (
+                        <td key={cat} className="text-center px-1 py-3">
+                          <div className="flex items-center justify-center">
+                            <div
+                              className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md ${cellColor(status)} flex items-center justify-center`}
+                              title={`${cat}: ${status}`}
+                            >
+                              {status !== "missing" && (
+                                <div className={`w-1.5 h-1.5 rounded-full ${cellDot(status)}`} />
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         {/* Expiring Soon */}

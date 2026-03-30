@@ -91,13 +91,21 @@ export async function GET(req: NextRequest) {
 
   // Process documents for insights
   const now = new Date();
-  const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+  const HEALTH_CATEGORIES = ["Insurance", "Lease", "Warranty", "Inspection", "Contract", "Permit", "Certificate"];
   const expiring: { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; itemIcon: string | null; expiryDate: string; daysRemaining: number }[] = [];
   const typeCounts: Record<string, number> = {};
   const spacesWithInsurance = new Set<string>();
 
   // Track latest expiry per asset+type to avoid duplicates from replaced docs
   const latestExpiry: Record<string, { docId: string; docName: string; spaceId: string; spaceName: string; itemId: string; itemName: string; itemIcon: string | null; expiryDate: Date; daysRemaining: number }> = {};
+
+  // Health grid: spaceId -> category -> { hasDoc, minDays (null = no expiry tracked) }
+  type CellState = { hasDoc: boolean; minDays: number | null };
+  const spaceTypeState: Record<string, Record<string, CellState>> = {};
+  for (const spaceId of spaceIds) {
+    spaceTypeState[spaceId] = {};
+    for (const cat of HEALTH_CATEGORIES) spaceTypeState[spaceId][cat] = { hasDoc: false, minDays: null };
+  }
 
   for (const doc of docs || []) {
     const storedDetails = doc.details as Record<string, string> | null;
@@ -112,12 +120,25 @@ export async function GET(req: NextRequest) {
     if (docType) typeCounts[docType] = (typeCounts[docType] || 0) + 1;
     if (docType?.toLowerCase() === "insurance") spacesWithInsurance.add(item.spaceId);
 
+    // Health grid tracking
+    const matchedCat = HEALTH_CATEGORIES.find((c) => c.toLowerCase() === (docType || "").toLowerCase());
+    if (matchedCat && spaceTypeState[item.spaceId]) {
+      const cell = spaceTypeState[item.spaceId][matchedCat];
+      cell.hasDoc = true;
+      if (expiry) {
+        const expiryDate = parseExpiryToDate(expiry);
+        if (expiryDate) {
+          const days = Math.ceil((expiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+          if (cell.minDays === null || days < cell.minDays) cell.minDays = days;
+        }
+      }
+    }
+
     if (expiry) {
       const expiryDate = parseExpiryToDate(expiry);
       if (expiryDate && expiryDate.getTime() > now.getTime()) {
         const key = `${doc.item_id}-${(docType || "unknown").toLowerCase()}`;
         const existing = latestExpiry[key];
-        // Keep the latest (furthest out) expiry — newer doc replaces old one
         if (!existing || expiryDate.getTime() > existing.expiryDate.getTime()) {
           const diff = expiryDate.getTime() - now.getTime();
           latestExpiry[key] = {
@@ -150,10 +171,33 @@ export async function GET(req: NextRequest) {
     .filter((s: { id: string }) => !spacesWithInsurance.has(s.id))
     .map((s: { id: string; name: string }) => ({ spaceId: s.id, name: s.name }));
 
+  // Convert spaceTypeState to healthGrid status strings
+  type CellStatus = "ok" | "notice" | "warning" | "urgent" | "expired" | "missing";
+  function cellStatus(cell: CellState): CellStatus {
+    if (!cell.hasDoc) return "missing";
+    if (cell.minDays === null) return "ok"; // doc exists, no expiry tracked
+    if (cell.minDays < 0) return "expired";
+    if (cell.minDays <= 30) return "urgent";
+    if (cell.minDays <= 60) return "warning";
+    if (cell.minDays <= 90) return "notice";
+    return "ok";
+  }
+
+  const healthGrid: Record<string, Record<string, CellStatus>> = {};
+  for (const spaceId of spaceIds) {
+    healthGrid[spaceId] = {};
+    for (const cat of HEALTH_CATEGORIES) {
+      healthGrid[spaceId][cat] = cellStatus(spaceTypeState[spaceId][cat]);
+    }
+  }
+
   return NextResponse.json({
     counts,
     expiring: expiring.slice(0, 20),
     typeCounts,
     missingInsurance,
+    healthGrid,
+    healthCategories: HEALTH_CATEGORIES,
+    spaces: (spaces || []).map((s: { id: string; name: string }) => ({ id: s.id, name: s.name })),
   });
 }
