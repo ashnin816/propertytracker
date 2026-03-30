@@ -191,13 +191,18 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Only show categories where at least one property has a document
+  const activeCategories = HEALTH_CATEGORIES.filter((cat) =>
+    spaceIds.some((spaceId) => spaceTypeState[spaceId][cat].hasDoc)
+  );
+
   return NextResponse.json({
     counts,
     expiring: expiring.slice(0, 20),
     typeCounts,
     missingInsurance,
     healthGrid,
-    healthCategories: HEALTH_CATEGORIES,
+    healthCategories: activeCategories,
     spaces: (spaces || []).map((s: { id: string; name: string }) => ({ id: s.id, name: s.name })),
   });
 }
